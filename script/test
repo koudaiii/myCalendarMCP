@@ -20,7 +20,15 @@ echo "🔍 リンターを実行中..."
 uv run ruff check calendar_mcp/
 
 echo "🧪 単体テストを実行中..."
-uv run pytest tests/ -v
+uv run pytest tests/ -v || {
+    exit_code=$?
+    if [ $exit_code -eq 5 ]; then
+        echo "ℹ️  テストファイルが見つかりませんでした（正常な状態）"
+    else
+        echo "❌ テスト実行でエラーが発生しました（終了コード: $exit_code）"
+        exit $exit_code
+    fi
+}
 
 echo "🔧 MCPサーバーの基本動作テスト..."
 uv run python request_calendar_permission.py
