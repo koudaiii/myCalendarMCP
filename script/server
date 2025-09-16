@@ -15,4 +15,7 @@ cd "$(dirname "$0")/.."
 
 # MCPサーバーを起動
 echo "🚀 MCPサーバーを起動します..."
-uv run python -m calendar_mcp
+echo "📡 デフォルト: SSE transport"
+echo "💡 トランスポートをカスタマイズ: $0 --transport sse"
+echo "💡 利用可能なトランスポート: stdio, sse, streamable-http"
+uv run python -m calendar_mcp "$@"

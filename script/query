@@ -1,0 +1,166 @@
+#!/bin/bash
+set -e
+
+# Usage function
+usage() {
+    echo "使用方法: $0 [オプション] \"クエリ\""
+    echo ""
+    echo "オプション:"
+    echo "  -d, --days N     N日後までのイベントを取得 (デフォルト: 7)"
+    echo "  -c, --calendar   カレンダー名を指定"
+    echo "  -l, --list       利用可能なカレンダー一覧を表示"
+    echo "  -h, --help       このヘルプを表示"
+    echo ""
+    echo "例:"
+    echo "  $0 \"直近の一覧を教えて\""
+    echo "  $0 -d 3 \"今日から3日間のイベント\""
+    echo "  $0 -c \"仕事\" \"仕事カレンダーのイベント\""
+    echo "  $0 -l \"カレンダー一覧を表示\""
+}
+
+# Default values
+DAYS=7
+CALENDAR_NAME=""
+QUERY=""
+LIST_CALENDARS=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -d|--days)
+            DAYS="$2"
+            shift 2
+            ;;
+        -c|--calendar)
+            CALENDAR_NAME="$2"
+            shift 2
+            ;;
+        -l|--list)
+            LIST_CALENDARS=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            QUERY="$1"
+            shift
+            ;;
+    esac
+done
+
+if [[ "$LIST_CALENDARS" == false && -z "$QUERY" ]]; then
+    echo "❌ クエリが指定されていません"
+    usage
+    exit 1
+fi
+
+echo "🗓️  macOS Calendar クエリを実行中..."
+echo "📅 クエリ: $QUERY"
+
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv がインストールされていません"
+    echo "📦 ./script/setup を実行してセットアップしてください"
+    exit 1
+fi
+
+# Change to project directory
+cd "$(dirname "$0")/.."
+
+# Calculate dates
+START_DATE=$(date +"%Y-%m-%d")
+END_DATE=$(date -d "+${DAYS} days" +"%Y-%m-%d" 2>/dev/null || date -v+${DAYS}d +"%Y-%m-%d")
+
+echo "📍 期間: $START_DATE から $END_DATE"
+if [[ -n "$CALENDAR_NAME" ]]; then
+    echo "📋 カレンダー: $CALENDAR_NAME"
+fi
+
+# Execute Python script
+if [[ "$LIST_CALENDARS" == true ]]; then
+    # List calendars
+    uv run python -c "
+import asyncio
+import sys
+from calendar_mcp.server import CalendarMCPServer
+
+async def main():
+    server = CalendarMCPServer()
+
+    # Get calendars
+    calendars = await server._get_calendars()
+
+    if not calendars:
+        print('📭 利用可能なカレンダーがありません')
+        return
+
+    if isinstance(calendars, list) and len(calendars) == 1 and 'error' in calendars[0]:
+        print(f'❌ エラー: {calendars[0][\"error\"]}')
+        return
+
+    print(f'\\n📋 {len(calendars)}個のカレンダーが利用可能です:\\n')
+
+    for i, calendar in enumerate(calendars, 1):
+        title = calendar.get('title', 'タイトルなし')
+        calendar_type = calendar.get('type', 'N/A')
+        identifier = calendar.get('identifier', 'N/A')
+        modifiable = calendar.get('allowsContentModifications', False)
+
+        print(f'{i}. {title}')
+        print(f'   🏷️  タイプ: {calendar_type}')
+        print(f'   🆔 ID: {identifier}')
+        print(f'   ✏️  編集可能: {\"はい\" if modifiable else \"いいえ\"}')
+        print()
+
+if __name__ == '__main__':
+    asyncio.run(main())
+"
+else
+    # Get events
+    uv run python -c "
+import asyncio
+import sys
+from datetime import datetime
+from calendar_mcp.server import CalendarMCPServer
+
+async def main():
+    server = CalendarMCPServer()
+
+    # Get events
+    events = await server._get_events(
+        start_date='$START_DATE',
+        end_date='$END_DATE',
+        calendar_name='$CALENDAR_NAME' if '$CALENDAR_NAME' else None
+    )
+
+    if not events:
+        print('📭 指定した期間にイベントはありません')
+        return
+
+    if isinstance(events, list) and len(events) == 1 and 'error' in events[0]:
+        print(f'❌ エラー: {events[0][\"error\"]}')
+        return
+
+    print(f'\\n📋 {len(events)}件のイベントが見つかりました:\\n')
+
+    for i, event in enumerate(events, 1):
+        title = event.get('title', 'タイトルなし')
+        start = event.get('start_date', 'N/A')
+        end = event.get('end_date', 'N/A')
+        calendar = event.get('calendar', 'N/A')
+        notes = event.get('notes', '')
+
+        print(f'{i}. {title}')
+        print(f'   📅 開始: {start}')
+        print(f'   🏁 終了: {end}')
+        print(f'   📋 カレンダー: {calendar}')
+        if notes:
+            print(f'   📝 メモ: {notes}')
+        print()
+
+if __name__ == '__main__':
+    asyncio.run(main())
+"
+fi

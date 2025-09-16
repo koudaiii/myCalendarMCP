@@ -1,12 +1,13 @@
 """Clean version of macOS Calendar MCP Server implementation."""
 
 import json
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Resource, TextContent, Tool
+from mcp.server import FastMCP
+
+logger = logging.getLogger(__name__)
 
 try:
     import EventKit
@@ -21,7 +22,7 @@ class CalendarMCPServer:
     """MCP Server for macOS Calendar integration."""
 
     def __init__(self):
-        self.server = Server("calendar-mcp")
+        self.mcp = FastMCP("macOS Calendar MCP Server")
         self.event_store = None
 
         # EventKit の初期化
@@ -42,133 +43,53 @@ class CalendarMCPServer:
     def _setup_handlers(self):
         """Setup MCP server handlers."""
 
-        @self.server.list_resources()
-        async def list_resources() -> List[Resource]:
-            """List available calendar resources."""
-            return [
-                Resource(
-                    uri="calendar://events",
-                    name="Calendar Events",
-                    description="Access to calendar events",
-                    mimeType="application/json",
-                ),
-                Resource(
-                    uri="calendar://calendars",
-                    name="Calendars",
-                    description="List of available calendars",
-                    mimeType="application/json",
-                ),
-            ]
+        @self.mcp.resource("calendar://events")
+        async def list_events():
+            """List available calendar events."""
+            events = await self._get_events()
+            return json.dumps(events, indent=2)
 
-        @self.server.read_resource()
-        async def read_resource(uri: str) -> str:
-            """Read calendar resource."""
-            if uri == "calendar://events":
-                events = await self._get_events()
-                return json.dumps(events, indent=2)
-            elif uri == "calendar://calendars":
-                calendars = await self._get_calendars()
-                return json.dumps(calendars, indent=2)
-            else:
-                raise ValueError(f"Unknown resource: {uri}")
+        @self.mcp.resource("calendar://calendars")
+        async def list_calendars_resource():
+            """List available calendars."""
+            calendars = await self._get_calendars()
+            return json.dumps(calendars, indent=2)
 
-        @self.server.list_tools()
-        async def list_tools() -> List[Tool]:
-            """List available calendar tools."""
-            return [
-                Tool(
-                    name="get_events",
-                    description="Get calendar events for a date range",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "start_date": {
-                                "type": "string",
-                                "description": "Start date (YYYY-MM-DD)",
-                            },
-                            "end_date": {
-                                "type": "string",
-                                "description": "End date (YYYY-MM-DD)",
-                            },
-                            "calendar_name": {
-                                "type": "string",
-                                "description": "Calendar name (optional)",
-                            },
-                        },
-                        "required": ["start_date", "end_date"],
-                    },
-                ),
-                Tool(
-                    name="create_event",
-                    description="Create a new calendar event",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "title": {"type": "string", "description": "Event title"},
-                            "start_date": {
-                                "type": "string",
-                                "description": "Start date and time (YYYY-MM-DD HH:MM)",
-                            },
-                            "end_date": {
-                                "type": "string",
-                                "description": "End date and time (YYYY-MM-DD HH:MM)",
-                            },
-                            "calendar_name": {
-                                "type": "string",
-                                "description": "Calendar name (optional)",
-                            },
-                            "notes": {
-                                "type": "string",
-                                "description": "Event notes (optional)",
-                            },
-                        },
-                        "required": ["title", "start_date", "end_date"],
-                    },
-                ),
-                Tool(
-                    name="list_calendars",
-                    description="List all available calendars",
-                    inputSchema={"type": "object", "properties": {}},
-                ),
-            ]
+        @self.mcp.tool()
+        async def get_events(
+            start_date: str, end_date: str, calendar_name: str = None
+        ) -> str:
+            """Get calendar events for a date range."""
+            events = await self._get_events(
+                start_date=start_date,
+                end_date=end_date,
+                calendar_name=calendar_name,
+            )
+            return json.dumps(events, indent=2)
 
-        @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-            """Handle tool calls."""
-            try:
-                if name == "get_events":
-                    events = await self._get_events(
-                        start_date=arguments.get("start_date"),
-                        end_date=arguments.get("end_date"),
-                        calendar_name=arguments.get("calendar_name"),
-                    )
-                    return [TextContent(type="text", text=json.dumps(events, indent=2))]
+        @self.mcp.tool()
+        async def create_event(
+            title: str,
+            start_date: str,
+            end_date: str,
+            calendar_name: str = None,
+            notes: str = None,
+        ) -> str:
+            """Create a new calendar event."""
+            result = await self._create_event(
+                title=title,
+                start_date=start_date,
+                end_date=end_date,
+                calendar_name=calendar_name,
+                notes=notes,
+            )
+            return f"Event created successfully: {result}"
 
-                elif name == "create_event":
-                    result = await self._create_event(
-                        title=arguments["title"],
-                        start_date=arguments["start_date"],
-                        end_date=arguments["end_date"],
-                        calendar_name=arguments.get("calendar_name"),
-                        notes=arguments.get("notes"),
-                    )
-                    return [
-                        TextContent(
-                            type="text", text=f"Event created successfully: {result}"
-                        )
-                    ]
-
-                elif name == "list_calendars":
-                    calendars = await self._get_calendars()
-                    return [
-                        TextContent(type="text", text=json.dumps(calendars, indent=2))
-                    ]
-
-                else:
-                    raise ValueError(f"Unknown tool: {name}")
-
-            except Exception as e:
-                return [TextContent(type="text", text=f"Error: {str(e)}")]
+        @self.mcp.tool()
+        async def list_calendars() -> str:
+            """List all available calendars."""
+            calendars = await self._get_calendars()
+            return json.dumps(calendars, indent=2)
 
     async def _get_calendars(self) -> List[Dict[str, Any]]:
         """Get list of calendars."""
@@ -244,7 +165,7 @@ class CalendarMCPServer:
                         "end": str(event.endDate()),
                         "calendar": str(event.calendar().title()),
                         "notes": str(event.notes()) if event.notes() else "",
-                        "allDay": bool(event.allDay()),
+                        "allDay": bool(event.isAllDay()),
                     }
                 )
 
@@ -321,17 +242,30 @@ class CalendarMCPServer:
             return f"Failed to create event: {str(e)}"
 
 
-async def main():
+def main():
     """Main entry point for the MCP server."""
-    # Starting macOS Calendar MCP Server
-    # Waiting for MCP protocol communication
-    # Press Ctrl+C to exit
+    import argparse
+
+    parser = argparse.ArgumentParser(description="macOS Calendar MCP Server")
+    parser.add_argument(
+        "--transport",
+        type=str,
+        default="sse",
+        choices=["stdio", "sse", "streamable-http"],
+        help="Transport protocol to use (default: sse)",
+    )
+    parser.add_argument(
+        "--mount-path", type=str, default=None, help="Mount path for SSE transport"
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+    logger.info(
+        f"🚀 Starting macOS Calendar MCP Server with {args.transport} transport"
+    )
+    logger.info("📡 Press Ctrl+C to exit")
 
     server_instance = CalendarMCPServer()
 
-    async with stdio_server() as (read_stream, write_stream):
-        await server_instance.server.run(
-            read_stream,
-            write_stream,
-            server_instance.server.create_initialization_options(),
-        )
+    # FastMCP provides multiple transport options
+    server_instance.mcp.run(transport=args.transport, mount_path=args.mount_path)
