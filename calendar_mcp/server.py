@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import os
 import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -309,23 +308,15 @@ class CalendarMCPServer:
 
 async def main():
     """Main entry point for the MCP server."""
-    try:
-        print("🚀 macOS Calendar MCP Server を開始しています...")
-        print("📡 MCP プロトコルで通信待機中...")
-        print("⏹️  終了するには Ctrl+C を押してください")
+    print("🚀 macOS Calendar MCP Server を開始しています...")
+    print("📡 MCP プロトコルで通信待機中...")
+    print("⏹️  終了するには Ctrl+C を押してください")
 
-        server_instance = CalendarMCPServer()
+    server_instance = CalendarMCPServer()
 
-        async with stdio_server() as (read_stream, write_stream):
-            await server_instance.server.run(
-                read_stream,
-                write_stream,
-                server_instance.server.create_initialization_options()
-            )
-
-    except KeyboardInterrupt:
-        print("\n🛑 終了中...")
-        os._exit(0)
-    except Exception as e:
-        print(f"\n❌ エラー: {e}")
-        os._exit(1)
+    async with stdio_server() as (read_stream, write_stream):
+        await server_instance.server.run(
+            read_stream,
+            write_stream,
+            server_instance.server.create_initialization_options()
+        )
