@@ -242,7 +242,7 @@ class CalendarMCPServer:
             return f"Failed to create event: {str(e)}"
 
 
-def main():
+async def main():
     """Main entry point for the MCP server."""
     import argparse
 
@@ -268,4 +268,13 @@ def main():
     server_instance = CalendarMCPServer()
 
     # FastMCP provides multiple transport options
-    server_instance.mcp.run(transport=args.transport, mount_path=args.mount_path)
+    # Use the async version to avoid event loop conflicts
+    if args.transport == "sse":
+        await server_instance.mcp.run_sse_async(mount_path=args.mount_path)
+    elif args.transport == "stdio":
+        await server_instance.mcp.run_stdio_async()
+    elif args.transport == "streamable-http":
+        await server_instance.mcp.run_streamable_http_async()
+    else:
+        # Fallback for unknown transports
+        server_instance.mcp.run(transport=args.transport, mount_path=args.mount_path)

@@ -1,74 +1,74 @@
 # macOS Calendar MCP Server
 
-macOS の Calendar アプリ（EventKit）にアクセスするための MCP（Model Context Protocol）サーバーです。
+An MCP (Model Context Protocol) server for accessing macOS Calendar app (EventKit).
 
-## 機能
+## Features
 
-- カレンダーイベントの取得
-- 新しいイベントの作成
-- イベントの更新・削除
-- カレンダー一覧の取得
+- Get calendar events
+- Create new events
+- Update and delete events
+- Get calendar list
 
-## 必要な環境
+## Requirements
 
-- macOS (Apple Silicon 対応)
+- macOS (Apple Silicon supported)
 - Python 3.8+
-- EventKit フレームワークへのアクセス許可
+- EventKit framework access permission
 
-### macOS プライバシー設定
+### macOS Privacy Settings
 
-カレンダーにアクセスするには、macOS のプライバシー設定でアクセス許可が必要です：
+To access the calendar, you need to grant permission in macOS privacy settings:
 
-1. **システム設定** > **プライバシーとセキュリティ** > **カレンダー**
-2. 以下のアプリケーションを **オン** にしてください：
-   - Terminal/iTerm2 (CLI で使用する場合)
+1. **System Settings** > **Privacy & Security** > **Calendar**
+2. Turn **ON** the following applications:
+   - Terminal/iTerm2 (when using CLI)
 
-**注意**: 設定変更後は、アプリケーションを再起動してください。
+**Note**: Please restart the application after changing settings.
 
-## セットアップ
+## Setup
 
 ```bash
-# 環境セットアップ（uvを使用）
+# Environment setup (using uv)
 ./script/setup
 ```
 
-## MCPサーバー起動
+## Starting MCP Server
 
 ```bash
-# MCPサーバーを起動（SSEトランスポート - HTTPモード）
+# Start MCP server (SSE transport - HTTP mode)
 ./script/server
 
-# トランスポート方式をカスタマイズ
-./script/server --transport sse        # SSE (HTTP) - デフォルト
-./script/server --transport stdio      # 標準入出力
+# Customize transport method
+./script/server --transport sse        # SSE (HTTP) - default
+./script/server --transport stdio      # Standard input/output
 ./script/server --transport streamable-http  # Streamable HTTP
 
-# テストを実行
+# Run tests
 ./script/test
 ```
 
-**HTTPエンドポイント**:
-- SSE: `http://127.0.0.1:8000/sse` でアクセス可能
-- Streamable HTTP: `http://127.0.0.1:8000` でアクセス可能（MCP クライアント用）
+**HTTP Endpoints**:
+- SSE: Accessible at `http://127.0.0.1:8000/sse`
+- Streamable HTTP: Accessible at `http://127.0.0.1:8000` (for MCP clients)
 
-### HTTPトランスポートの特徴と制限
+### HTTP Transport Features and Limitations
 
-**SSEトランスポート接続:**
-- エンドポイント: `http://127.0.0.1:8000/sse`
-- プロトコル: Server-Sent Events (SSE)
-- メッセージ送信: POST `http://127.0.0.1:8000/messages`
+**SSE Transport Connection:**
+- Endpoint: `http://127.0.0.1:8000/sse`
+- Protocol: Server-Sent Events (SSE)
+- Message sending: POST `http://127.0.0.1:8000/messages`
 
-**Streamable HTTPトランスポート接続:**
-- エンドポイント: `http://127.0.0.1:8000/`
-- プロトコル: HTTP/1.1 ストリーミング
-- 双方向通信対応
+**Streamable HTTP Transport Connection:**
+- Endpoint: `http://127.0.0.1:8000/`
+- Protocol: HTTP/1.1 streaming
+- Bidirectional communication support
 
 
-### VS Code (Claude Code) での設定
+### VS Code (Claude Code) Configuration
 
 - `$ script/server --transport sse`
 
-**SSEトランスポート用設定 (settings.json または .vscode/settings.json):**
+**SSE Transport Configuration (settings.json or .vscode/settings.json):**
 ```json
 {
   "claude.mcpServers": {
@@ -79,7 +79,7 @@ macOS の Calendar アプリ（EventKit）にアクセスするための MCP（M
 }
 ```
 
-**Streamable HTTPトランスポート用設定 (settings.json または .vscode/settings.json):**
+**Streamable HTTP Transport Configuration (settings.json or .vscode/settings.json):**
 
 - `$ script/server --transport streamable-http`
 
@@ -93,51 +93,51 @@ macOS の Calendar アプリ（EventKit）にアクセスするための MCP（M
 }
 ```
 
-## CLI から直接使用
+## Direct CLI Usage
 
 ```bash
-# 直近7日間のイベントを取得
-./script/query "直近の一覧を教えて"
+# Get events for the next 7 days
+./script/query "Show me recent events"
 
-# 3日間のイベントを取得
-./script/query -d 3 "今日から3日間のイベント"
+# Get events for 3 days
+./script/query -d 3 "Events for the next 3 days"
 
-# 特定のカレンダーのイベントを取得
-./script/query -c "仕事" "仕事カレンダーのイベント"
+# Get events from specific calendar
+./script/query -c "Work" "Work calendar events"
 
-# 利用可能なカレンダー一覧を表示
-./script/query -l "カレンダー一覧を表示"
+# Show available calendar list
+./script/query -l "Show calendar list"
 
-# ヘルプを表示
+# Show help
 ./script/query -h
 ```
 
-## トラブルシューティング
+## Troubleshooting
 
-### ❌ カレンダーにアクセスできない
+### ❌ Cannot access calendar
 
-**問題**: "EventKit not available" または空のイベント一覧
+**Issue**: "EventKit not available" or empty event list
 
-**解決方法**:
-1. **プライバシー設定を確認**
+**Solution**:
+1. **Check privacy settings**
    ```
-   システム設定 > プライバシーとセキュリティ > カレンダー
+   System Settings > Privacy & Security > Calendar
    ```
-   使用している Terminal をオンにする
+   Turn on the Terminal you're using
 
-2. **アプリケーションを再起動**
-   設定変更後は必ずアプリケーションを再起動してください
+2. **Restart the application**
+   Always restart the application after changing settings
 
 
-### ❌ uv コマンドが見つからない
+### ❌ uv command not found
 
-**問題**: "command not found: uv"
+**Issue**: "command not found: uv"
 
-**解決方法**:
+**Solution**:
 ```bash
-# uv をインストール
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# または Homebrew 経由で
+# Or via Homebrew
 brew install uv
 ```
