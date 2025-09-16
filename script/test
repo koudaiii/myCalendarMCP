@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+echo "🧪 macOS Calendar MCP Server テスト開始"
+
+# uvがインストールされているかチェック
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv がインストールされていません"
+    echo "📦 ./script/setup を実行してセットアップしてください"
+    exit 1
+fi
+
+# プロジェクトディレクトリに移動
+cd "$(dirname "$0")/.."
+
+echo "🔍 コードフォーマットをチェック中..."
+uv run black --check calendar_mcp/
+
+echo "🔍 リンターを実行中..."
+uv run ruff check calendar_mcp/
+
+echo "🧪 単体テストを実行中..."
+uv run pytest tests/ -v
+
+echo "🔧 MCPサーバーの基本動作テスト..."
+uv run python request_calendar_permission.py
+
+echo "✅ 全てのテストが完了しました！"
+echo
+echo "次のステップ:"
+echo " 以下のメッセージを試してください:"
+echo "   • 'カレンダー一覧を表示して'"
+echo "   • '今週のイベントを教えて'"
+echo "   • '明日の午後2時から3時に打ち合わせを作成して'"
+echo
+echo "📋 利用可能なツール:"
+echo "   • list_calendars - カレンダー一覧の取得"
+echo "   • get_events - イベントの取得（日付範囲指定可能）"
+echo "   • create_event - 新しいイベントの作成"
+echo ""
+echo "⚠️  注意事項:"
+echo "   • 初回実行時にmacOSからカレンダーアクセス許可を求められます"
+echo "   • システム環境設定 > セキュリティとプライバシー > カレンダー で許可を確認してください"

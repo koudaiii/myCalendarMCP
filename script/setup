@@ -1,0 +1,72 @@
+#!/bin/bash
+set -e
+
+echo "🚀 macOS Calendar MCP Server セットアップ開始"
+
+# macOSかどうかチェック
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    echo "❌ このプロジェクトはmacOS専用です"
+    echo "📱 現在のOS: $OSTYPE"
+    exit 1
+fi
+
+echo "✅ macOS環境を確認しました"
+
+# uvがインストールされているかチェック
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv がインストールされていません"
+    echo "📦 uv をインストールしてください: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
+fi
+
+echo "✅ uv が見つかりました"
+
+# プロジェクトの状態確認
+echo "📁 現在のディレクトリ: $(pwd)"
+if [ -f "pyproject.toml" ]; then
+    echo "📁 pyproject.toml が見つかりました。既存のプロジェクトを使用します"
+else
+    echo "📁 pyproject.toml が見つかりません。プロジェクトを初期化中..."
+    uv init --no-readme --no-workspace
+fi
+
+# 依存関係のインストール
+echo "📦 依存関係をインストール中..."
+uv sync --all-extras
+
+# カレンダーアクセス許可の設定
+echo "🔐 カレンダーアクセス許可を設定中..."
+echo "   macOSのカレンダーアクセス許可をリセットします"
+
+# カレンダーアクセス許可をリセット（ユーザーに再度許可を求めるため）
+if command -v tccutil &> /dev/null; then
+    echo "   tccutil を使用してカレンダー許可をリセット中..."
+    tccutil reset Calendar 2>/dev/null || echo "   ⚠️  tccutil の実行に失敗しました（管理者権限が必要な場合があります）"
+else
+    echo "   ⚠️  tccutil が見つかりません"
+fi
+
+echo ""
+echo "⚠️  重要: カレンダーアクセス許可について"
+echo "   MCPサーバーを初回起動時に、macOSからカレンダーアクセス許可を求められます。"
+echo "   許可しない場合は、以下の手順で手動設定してください:"
+echo ""
+echo "   macOS 13+ (Ventura/Sonoma/Sequoia):"
+echo "   1. システム設定 > プライバシーとセキュリティ > カレンダー"
+echo "   2. 「Python」のスイッチをオンにする"
+echo ""
+echo "   macOS 12以前 (Monterey):"
+echo "   1. システム環境設定 > セキュリティとプライバシー > プライバシー"
+echo "   2. 左側で「カレンダー」を選択"
+echo "   3. 「Python」または「ターミナル」にチェックを入れる"
+echo ""
+echo "   💡 アプリが表示されない場合:"
+echo "   uv run python request_calendar_permission.py を実行してください"
+echo ""
+
+echo "✅ セットアップ完了！"
+echo ""
+echo "次のステップ:"
+echo "  1. ./script/server でMCPサーバーを起動"
+echo "  2. ./script/test でテストを実行"
+echo "  3. Kiro IDE でMCPツールとして利用"

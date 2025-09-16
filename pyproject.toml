@@ -1,0 +1,38 @@
+[project]
+name = "calendar-mcp"
+version = "1.0.0"
+description = "macOS Calendar MCP Server using EventKit"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp",
+    "pyobjc-framework-EventKit",
+    "pyobjc-framework-Cocoa", 
+    "python-dateutil",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "T20"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "calendar": {
+      "command": "uv",
+      "args": ["run", "python", "run_mcp.py"],
+      "cwd": "/Users/kodaisakabe/src/github.com/koudaiii/mycalendarMCP",
+      "disabled": false,
+      "autoApprove": ["list_calendars", "get_events", "create_event"]
+    }
+  }
+}

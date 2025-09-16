@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+echo "🗓️  macOS Calendar MCP Server を起動中..."
+
+# uvがインストールされているかチェック
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv がインストールされていません"
+    echo "📦 ./script/setup を実行してセットアップしてください"
+    exit 1
+fi
+
+# プロジェクトディレクトリに移動
+cd "$(dirname "$0")/.."
+
+# MCPサーバーを起動
+echo "🚀 MCPサーバーを起動します..."
+uv run python -m calendar_mcp
