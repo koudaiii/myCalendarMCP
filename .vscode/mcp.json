@@ -1,0 +1,10 @@
+{
+	"servers": {
+		"my-mcp-server-eaadf189": {
+			"type": "stdio",
+			"command": "script/server",
+			"args": []
+		}
+	},
+	"inputs": []
+}
