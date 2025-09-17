@@ -60,3 +60,39 @@ script/server --transport streamable-http
 - FastMCP の `run()` メソッドは内部で `anyio.run()` を呼び出すため、既存の asyncio event loop 内では使用不可
 - 各トランスポートには対応する async 版メソッドが存在するため、それらを使用する必要がある
 - 将来的に新しいトランスポートが追加された場合、同様の対応が必要
+
+### 5. テスト環境とMCPツール検証
+
+**テストファイル構成:**
+- `tests/conftest.py`: pytest設定、asyncioバックエンド指定
+- `tests/test_tools.py`: MCPツールの包括的テストスイート
+
+**テスト対象:**
+- MCPツール呼び出し (`get_events`, `create_event`, `list_calendars`)
+- MCPリソース読み込み (`calendar://events`, `calendar://calendars`)
+- EventKit利用可能/不可能時の動作
+- エラーハンドリング（不正な日付形式等）
+- レスポンス形式の妥当性
+
+**テスト実行方法:**
+```bash
+# 全体テスト実行（推奨）
+script/test
+
+# 単体テストのみ実行
+uv run pytest tests/ -v
+
+# 特定のテストクラス実行
+uv run pytest tests/test_tools.py::TestCalendarMCPTools -v
+```
+
+**テスト設定のポイント:**
+- anyio backends を asyncio のみに制限（pytest.ini_options で `anyio_backends = ["asyncio"]` 設定）
+- conftest.py で `anyio_backend` fixture を設定
+- `@pytest.mark.anyio(backends=["asyncio"])` でasyncio使用を明示
+
+**MCPツール呼び出しAPI:**
+- `server.mcp.list_tools()`: ツール一覧取得（Toolオブジェクトのリスト）
+- `server.mcp.call_tool(name, args)`: ツール実行（戻り値: `(content_list, result_dict)` のタプル）
+- `server.mcp.list_resources()`: リソース一覧取得（Resourceオブジェクトのリスト）
+- `server.mcp.read_resource(uri)`: リソース読み込み（戻り値: `ReadResourceContents` オブジェクトのリスト）
