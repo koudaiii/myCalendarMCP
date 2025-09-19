@@ -1,9 +1,9 @@
 """Test cases for MCP tools in calendar_mcp.server."""
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
 from calendar_mcp.server import CalendarMCPServer
 
@@ -16,7 +16,7 @@ class TestCalendarMCPTools:
     @pytest.fixture
     def server(self):
         """Create a CalendarMCPServer instance for testing."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', False):
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", False):
             return CalendarMCPServer()
 
     @pytest.fixture
@@ -45,15 +45,15 @@ class TestCalendarMCPTools:
         result = await server._create_event(
             title="Test Event",
             start_date="2024-01-01 10:00",
-            end_date="2024-01-01 11:00"
+            end_date="2024-01-01 11:00",
         )
         assert result == "EventKit not available"
 
     async def test_get_events_with_mock_eventkit(self, mock_event_store):
         """Test get_events with mocked EventKit."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', True):
-            with patch('calendar_mcp.server.EventKit') as mock_eventkit:
-                with patch('calendar_mcp.server.Foundation') as mock_foundation:
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", True):
+            with patch("calendar_mcp.server.EventKit"):
+                with patch("calendar_mcp.server.Foundation") as mock_foundation:
                     # Setup mocks
                     mock_foundation.NSDate.date.return_value = MagicMock()
                     mock_foundation.NSDate.dateWithTimeIntervalSinceNow_.return_value = MagicMock()
@@ -67,7 +67,9 @@ class TestCalendarMCPTools:
                     mock_event.notes.return_value = "Test notes"
                     mock_event.isAllDay.return_value = False
 
-                    mock_event_store.eventsMatchingPredicate_.return_value = [mock_event]
+                    mock_event_store.eventsMatchingPredicate_.return_value = [
+                        mock_event
+                    ]
 
                     server = CalendarMCPServer()
                     server.event_store = mock_event_store
@@ -80,8 +82,8 @@ class TestCalendarMCPTools:
 
     async def test_get_calendars_with_mock_eventkit(self, mock_event_store):
         """Test get_calendars with mocked EventKit."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', True):
-            with patch('calendar_mcp.server.EventKit'):
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", True):
+            with patch("calendar_mcp.server.EventKit"):
                 mock_calendar = MagicMock()
                 mock_calendar.title.return_value = "Test Calendar"
                 mock_calendar.calendarIdentifier.return_value = "test-id"
@@ -102,9 +104,9 @@ class TestCalendarMCPTools:
 
     async def test_create_event_with_mock_eventkit(self, mock_event_store):
         """Test create_event with mocked EventKit."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', True):
-            with patch('calendar_mcp.server.EventKit') as mock_eventkit:
-                with patch('calendar_mcp.server.Foundation') as mock_foundation:
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", True):
+            with patch("calendar_mcp.server.EventKit") as mock_eventkit:
+                with patch("calendar_mcp.server.Foundation") as mock_foundation:
                     # Setup mocks
                     mock_event = MagicMock()
                     mock_eventkit.EKEvent.eventWithEventStore_.return_value = mock_event
@@ -117,7 +119,7 @@ class TestCalendarMCPTools:
                         title="Test Event",
                         start_date="2024-01-01 10:00",
                         end_date="2024-01-01 11:00",
-                        notes="Test notes"
+                        notes="Test notes",
                     )
 
                     assert "Test Event" in result
@@ -137,10 +139,7 @@ class TestCalendarMCPTools:
         # Call the tool through MCP
         result = await server.mcp.call_tool(
             "get_macos_calendar_events",
-            {
-                "start_date": "2024-01-01",
-                "end_date": "2024-01-02"
-            }
+            {"start_date": "2024-01-01", "end_date": "2024-01-02"},
         )
 
         # Should return tuple of (content_list, result_dict)
@@ -163,8 +162,8 @@ class TestCalendarMCPTools:
             {
                 "title": "Test Event",
                 "start_date": "2024-01-01 10:00",
-                "end_date": "2024-01-01 11:00"
-            }
+                "end_date": "2024-01-01 11:00",
+            },
         )
 
         # Should return tuple of (content_list, result_dict)
@@ -192,18 +191,18 @@ class TestCalendarMCPTools:
 
     async def test_get_events_with_date_filters(self, mock_event_store):
         """Test get_events with specific date filters."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', True):
-            with patch('calendar_mcp.server.EventKit'):
-                with patch('calendar_mcp.server.Foundation') as mock_foundation:
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", True):
+            with patch("calendar_mcp.server.EventKit"):
+                with patch("calendar_mcp.server.Foundation") as mock_foundation:
                     mock_foundation.NSDate.dateWithTimeIntervalSince1970_.return_value = MagicMock()
 
                     server = CalendarMCPServer()
                     server.event_store = mock_event_store
 
-                    result = await server._get_events(
+                    await server._get_events(
                         start_date="2024-01-01",
                         end_date="2024-01-31",
-                        calendar_name="Work"
+                        calendar_name="Work",
                     )
 
                     # Should call the mock methods
@@ -212,9 +211,11 @@ class TestCalendarMCPTools:
 
     async def test_create_event_access_denied(self, mock_event_store):
         """Test create_event when calendar access is denied."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', True):
-            with patch('calendar_mcp.server.EventKit'):
-                mock_event_store.requestAccessToEntityType_completion_.return_value = False
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", True):
+            with patch("calendar_mcp.server.EventKit"):
+                mock_event_store.requestAccessToEntityType_completion_.return_value = (
+                    False
+                )
 
                 server = CalendarMCPServer()
                 server.event_store = mock_event_store
@@ -222,18 +223,20 @@ class TestCalendarMCPTools:
                 result = await server._create_event(
                     title="Test Event",
                     start_date="2024-01-01 10:00",
-                    end_date="2024-01-01 11:00"
+                    end_date="2024-01-01 11:00",
                 )
 
                 assert result == "Calendar access denied"
 
     async def test_create_event_save_failure(self, mock_event_store):
         """Test create_event when save operation fails."""
-        with patch('calendar_mcp.server.EVENTKIT_AVAILABLE', True):
-            with patch('calendar_mcp.server.EventKit') as mock_eventkit:
-                with patch('calendar_mcp.server.Foundation') as mock_foundation:
+        with patch("calendar_mcp.server.EVENTKIT_AVAILABLE", True):
+            with patch("calendar_mcp.server.EventKit") as mock_eventkit:
+                with patch("calendar_mcp.server.Foundation") as mock_foundation:
                     mock_event_store.saveEvent_span_error_.return_value = False
-                    mock_eventkit.EKEvent.eventWithEventStore_.return_value = MagicMock()
+                    mock_eventkit.EKEvent.eventWithEventStore_.return_value = (
+                        MagicMock()
+                    )
                     mock_foundation.NSDate.dateWithTimeIntervalSince1970_.return_value = MagicMock()
 
                     server = CalendarMCPServer()
@@ -242,7 +245,7 @@ class TestCalendarMCPTools:
                     result = await server._create_event(
                         title="Test Event",
                         start_date="2024-01-01 10:00",
-                        end_date="2024-01-01 11:00"
+                        end_date="2024-01-01 11:00",
                     )
 
                     assert result == "Failed to save event"
@@ -251,7 +254,11 @@ class TestCalendarMCPTools:
         """Test that MCP tools are properly registered."""
         tools = await server.mcp.list_tools()
         tool_names = [tool.name for tool in tools]
-        expected_tools = ["get_macos_calendar_events", "create_macos_calendar_event", "list_macos_calendars"]
+        expected_tools = [
+            "get_macos_calendar_events",
+            "create_macos_calendar_event",
+            "list_macos_calendars",
+        ]
 
         for tool_name in expected_tools:
             assert tool_name in tool_names, f"Tool {tool_name} not registered"
@@ -263,8 +270,8 @@ class TestCalendarMCPTools:
             {
                 "start_date": "2024-01-01",
                 "end_date": "2024-01-31",
-                "calendar_name": "Work"
-            }
+                "calendar_name": "Work",
+            },
         )
 
         content_list, result_dict = result
@@ -282,8 +289,8 @@ class TestCalendarMCPTools:
                 "start_date": "2024-02-15 14:00",
                 "end_date": "2024-02-15 15:30",
                 "calendar_name": "Work",
-                "notes": "Quarterly review meeting"
-            }
+                "notes": "Quarterly review meeting",
+            },
         )
 
         content_list, result_dict = result
@@ -296,10 +303,7 @@ class TestCalendarMCPTools:
         # Test with invalid date format
         result = await server.mcp.call_tool(
             "get_macos_calendar_events",
-            {
-                "start_date": "invalid-date",
-                "end_date": "2024-01-01"
-            }
+            {"start_date": "invalid-date", "end_date": "2024-01-01"},
         )
 
         content_list, result_dict = result
@@ -315,7 +319,9 @@ class TestCalendarMCPTools:
         expected_resources = ["calendar://events", "calendar://calendars"]
 
         for resource_uri in expected_resources:
-            assert resource_uri in resource_uris, f"Resource {resource_uri} not registered"
+            assert resource_uri in resource_uris, (
+                f"Resource {resource_uri} not registered"
+            )
 
     async def test_list_events_resource(self, server):
         """Test calendar://events resource."""
@@ -339,14 +345,14 @@ class TestCalendarMCPTools:
         """Test MCP server initialization."""
         server = CalendarMCPServer()
         assert server.mcp is not None
-        assert hasattr(server, 'event_store')
+        assert hasattr(server, "event_store")
 
     async def test_tool_response_format(self, server):
         """Test that tool responses are properly formatted."""
         # Test get_events response format
         result = await server.mcp.call_tool(
             "get_macos_calendar_events",
-            {"start_date": "2024-01-01", "end_date": "2024-01-02"}
+            {"start_date": "2024-01-01", "end_date": "2024-01-02"},
         )
 
         # Should be valid JSON
@@ -365,8 +371,8 @@ class TestCalendarMCPTools:
             {
                 "title": "Test",
                 "start_date": "2024-01-01 10:00",
-                "end_date": "2024-01-01 11:00"
-            }
+                "end_date": "2024-01-01 11:00",
+            },
         )
 
         # Should be a string message

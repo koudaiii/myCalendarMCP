@@ -483,9 +483,9 @@ async def main():
     parser.add_argument(
         "--transport",
         type=str,
-        default="sse",
+        default="streamable-http",
         choices=["stdio", "sse", "streamable-http"],
-        help="Transport protocol to use (default: sse)",
+        help="Transport protocol to use (default: streamable-http)",
     )
     parser.add_argument(
         "--mount-path", type=str, default=None, help="Mount path for SSE transport"
