@@ -490,3 +490,7 @@ elif args.transport == "new_transport":
 ---
 
 次の章では、MCPサーバー開発におけるベストプラクティスについて詳しく説明します。
+
+Prev: [01. MCPとは - Model Context Protocol概要](./01-mcp-overview.md)
+[README](./README.md)
+Next: [03 MCPサーバー開発ベストプラクティス](./03-best-practices.md)

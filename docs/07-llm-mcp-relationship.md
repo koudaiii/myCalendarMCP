@@ -674,3 +674,6 @@ async handleAnyTask(input: string) {
 ---
 
 MCP AIアシスタントは、GitHub CopilotやClaude Codeの進化形として、特定ドメインに限定されない汎用的なAIアシスタントアーキテクチャを実現しています。
+
+Prev: [06 MCPクライアントの意義とサーバー・クライアント役割分析](./06-mcp-client-significance.md)
+[README](./README.md)

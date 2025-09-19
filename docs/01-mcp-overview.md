@@ -124,3 +124,7 @@ MCPは単なるプロトコルではなく、AI開発の新しいパラダイム
 ---
 
 次の章では、このmycalendarMCPプロジェクトの具体的なアーキテクチャについて詳しく説明します。
+
+[README](./README.md)
+Next: [02 mycalendarMCP アーキテクチャ](./02-architecture.md)
+

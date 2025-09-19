@@ -798,3 +798,7 @@ script/queryとの比較を通じて、MCPクライアントは「便利なツ�
 ---
 
 次に、この深い理解を既存のドキュメントに統合していきます。
+
+Prev: [05 呼び出し方法の比較 - script/query vs MCPクライアント](05-call-methods-comparison.md)
+[README](./README.md)
+Next: [07 LLMとMCPクライアントの正確な関係](./07-llm-mcp-relationship.md)

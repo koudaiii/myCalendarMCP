@@ -382,6 +382,15 @@ async def get_events_legacy(...):
 
 これらのベストプラクティスにより、高品質で保守可能なMCPサーバーを構築できます。
 
+
+## 参考文献
+
+- [Tool-space Interference in the MCP Era: Designing for Agent Compatibility at Scale](https://www.microsoft.com/en-us/research/blog/tool-space-interference-in-the-mcp-era-designing-for-agent-compatibility-at-scale/)
+
 ---
 
 次の章では、開発・運用時によく遭遇する問題とその解決方法について説明します。
+
+Prev: [02 mycalendarMCP アーキテクチャ](./02-architecture.md)
+[README](./README.md)
+Next: [04 トラブルシューティングガイド](./04-troubleshooting.md)
