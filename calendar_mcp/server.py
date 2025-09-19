@@ -1,7 +1,9 @@
 """Clean version of macOS Calendar MCP Server implementation."""
 
 import json
+import locale
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -15,11 +17,33 @@ json_logger = logging.getLogger(f"{__name__}.json_data")
 json_logger.setLevel(logging.INFO)
 
 
+def safe_json_dumps(data: Any, **kwargs) -> str:
+    """安全にJSONシリアライゼーションを行い、UTF-8エンコーディングを保証する"""
+    try:
+        # デフォルトでUTF-8フレンドリーな設定を使用
+        default_kwargs = {"indent": 2, "ensure_ascii": False, "separators": (",", ": ")}
+        default_kwargs.update(kwargs)
+
+        json_str = json.dumps(data, **default_kwargs)
+
+        # JSON文字列がUTF-8でエンコードできることを確認
+        json_str.encode("utf-8")
+
+        return json_str
+    except (TypeError, UnicodeError) as e:
+        logger.warning(
+            f"JSON serialization warning: {e}, falling back to ASCII-safe mode"
+        )
+        fallback_kwargs = kwargs.copy()
+        fallback_kwargs["ensure_ascii"] = True
+        return json.dumps(data, **fallback_kwargs)
+
+
 def log_json_data(data_type: str, data: Any, direction: str = ""):
     """JSON データをログ出力する"""
     try:
         if isinstance(data, (dict, list)):
-            json_str = json.dumps(data, indent=2, ensure_ascii=False)
+            json_str = safe_json_dumps(data)
         else:
             json_str = str(data)
 
@@ -81,7 +105,7 @@ class CalendarMCPServer:
             log_json_data("RESOURCE REQUEST", {"uri": "calendar://events"}, "INCOMING")
             events = await self._get_events()
             log_json_data("RESOURCE RESPONSE", events, "OUTGOING")
-            return json.dumps(events, indent=2)
+            return safe_json_dumps(events)
 
         @self.mcp.resource("calendar://calendars")
         async def list_calendars_resource():
@@ -91,7 +115,7 @@ class CalendarMCPServer:
             )
             calendars = await self._get_calendars()
             log_json_data("RESOURCE RESPONSE", calendars, "OUTGOING")
-            return json.dumps(calendars, indent=2)
+            return safe_json_dumps(calendars)
 
         @self.mcp.tool(
             name="get_macos_calendar_events",
@@ -147,7 +171,7 @@ class CalendarMCPServer:
                 calendar_name=calendar_name,
             )
             log_json_data("TOOL RESPONSE", events, "OUTGOING")
-            return json.dumps(events, indent=2)
+            return safe_json_dumps(events)
 
         @self.mcp.tool(
             name="create_macos_calendar_event",
@@ -251,7 +275,7 @@ class CalendarMCPServer:
             )
             calendars = await self._get_calendars()
             log_json_data("TOOL RESPONSE", calendars, "OUTGOING")
-            return json.dumps(calendars, indent=2)
+            return safe_json_dumps(calendars)
 
     async def _get_calendars(self) -> List[Dict[str, Any]]:
         """Get list of calendars."""
@@ -493,6 +517,24 @@ async def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+
+    # エンコーディング環境の確認と設定
+    try:
+        system_encoding = locale.getpreferredencoding()
+        env_lang = os.environ.get("LANG", "Not set")
+        env_lc_all = os.environ.get("LC_ALL", "Not set")
+
+        logger.info(f"🌐 System encoding: {system_encoding}")
+        logger.info(f"🌐 LANG environment: {env_lang}")
+        logger.info(f"🌐 LC_ALL environment: {env_lc_all}")
+
+        # UTF-8が利用可能かテスト
+        test_japanese = "テスト"
+        test_japanese.encode("utf-8")
+        logger.info("✅ UTF-8 encoding test passed")
+
+    except Exception as e:
+        logger.warning(f"⚠️ Encoding check failed: {e}")
 
     # JSONロガーの設定
     json_handler = logging.StreamHandler()
