@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from mcp.server import FastMCP
+from mcp.types import ToolAnnotations
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,40 @@ class CalendarMCPServer:
             log_json_data("RESOURCE RESPONSE", calendars, "OUTGOING")
             return json.dumps(calendars, indent=2)
 
-        @self.mcp.tool()
+        @self.mcp.tool(
+            name="get_macos_calendar_events",
+            description=(
+                "Retrieve calendar events from the macOS Calendar app within a "
+                "specified date range. This tool provides access to events stored "
+                "in the native macOS Calendar application, including events from "
+                "iCloud, Exchange, and local calendars. Optionally filter results "
+                "by specific calendar name to focus on events from a particular "
+                "calendar source.\n\n"
+                "Parameters:\n"
+                "- start_date (str): Start date in YYYY-MM-DD format "
+                "(e.g., '2024-09-19'). Events starting on or after this date "
+                "will be included.\\n"
+                "- end_date (str): End date in YYYY-MM-DD format "
+                "(e.g., '2024-09-26'). Events ending on or before this date "
+                "will be included.\\n"
+                "- calendar_name (str, optional): Filter events by specific "
+                "calendar name (case-sensitive). If not provided, events from "
+                "all available calendars will be returned. Use "
+                "list_macos_calendars to see available calendar names.\\n\\n"
+                "Examples:\\n"
+                "- Get all events for the current week: "
+                "start_date='2024-09-19', end_date='2024-09-26'\\n"
+                "- Get events from specific calendar: "
+                "start_date='2024-09-19', end_date='2024-09-26', "
+                "calendar_name='Work'"
+            ),
+            annotations=ToolAnnotations(
+                title="Get macOS Calendar Events",
+                readOnlyHint=True,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+        )
         async def get_macos_calendar_events(
             start_date: str, end_date: str, calendar_name: str = None
         ) -> str:
@@ -115,7 +149,45 @@ class CalendarMCPServer:
             log_json_data("TOOL RESPONSE", events, "OUTGOING")
             return json.dumps(events, indent=2)
 
-        @self.mcp.tool()
+        @self.mcp.tool(
+            name="create_macos_calendar_event",
+            description=(
+                "Create a new calendar event in the macOS Calendar app. This "
+                "tool adds events to the native macOS Calendar application with "
+                "full integration into the user's calendar system. Requires "
+                "calendar access permissions. The event will be created in the "
+                "specified calendar or the default calendar if none is specified.\n\n"
+                "Parameters:\n"
+                "- title (str): Event title/summary. This will be the main text "
+                "displayed in the calendar view. Max 255 characters.\\n"
+                "- start_date (str): Event start date and time in "
+                "'YYYY-MM-DD HH:MM' format (e.g., '2024-09-19 14:30'). "
+                "Uses 24-hour format.\\n"
+                "- end_date (str): Event end date and time in "
+                "'YYYY-MM-DD HH:MM' format (e.g., '2024-09-19 15:30'). "
+                "Must be after start_date. Uses 24-hour format.\\n"
+                "- calendar_name (str, optional): Target calendar name where "
+                "the event should be created (case-sensitive). If not "
+                "provided, the event will be created in the user's default "
+                "calendar. Use list_macos_calendars to see available "
+                "calendars.\\n"
+                "- notes (str, optional): Additional notes or description "
+                "for the event. Can include details, location, or any other "
+                "relevant information. Max 1000 characters.\\n\\n"
+                "Examples:\\n"
+                "- Simple meeting: title='Team Meeting', "
+                "start_date='2024-09-20 10:00', end_date='2024-09-20 11:00'\\n"
+                "- Detailed event: title='Client Presentation', "
+                "start_date='2024-09-21 14:00', end_date='2024-09-21 15:30', "
+                "calendar_name='Work', notes='Present Q3 results to client ABC'"
+            ),
+            annotations=ToolAnnotations(
+                title="Create macOS Calendar Event",
+                destructiveHint=True,
+                idempotentHint=False,
+                openWorldHint=False,
+            ),
+        )
         async def create_macos_calendar_event(
             title: str,
             start_date: str,
@@ -147,7 +219,29 @@ class CalendarMCPServer:
             log_json_data("TOOL RESPONSE", {"result": response}, "OUTGOING")
             return response
 
-        @self.mcp.tool()
+        @self.mcp.tool(
+            name="list_macos_calendars",
+            description=(
+                "List all available calendars in the macOS Calendar app. This "
+                "tool provides information about all calendar sources configured "
+                "on the system, including iCloud calendars, Exchange calendars, "
+                "Google calendars, and local calendars. Shows calendar properties "
+                "including whether they allow content modifications (event "
+                "creation/editing).\n\n"
+                "No parameters required.\n\n"
+                "Returns a JSON array of calendar objects with properties:\n"
+                "- title: Calendar display name\n"
+                "- identifier: Unique calendar identifier\n"
+                "- type: Calendar type (e.g., Local, CalDAV, Exchange)\n"
+                "- allowsContentModifications: Whether events can be created/edited"
+            ),
+            annotations=ToolAnnotations(
+                title="List macOS Calendars",
+                readOnlyHint=True,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+        )
         async def list_macos_calendars() -> str:
             """List all available macOS calendars."""
             log_json_data(

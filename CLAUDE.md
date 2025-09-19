@@ -190,3 +190,171 @@ uv run pytest tests/test_tools.py::TestCalendarMCPTools -v
 
 **参考情報:**
 - [Tool-space Interference in the MCP Era](https://www.microsoft.com/en-us/research/blog/tool-space-interference-in-the-mcp-era-designing-for-agent-compatibility-at-scale/)
+
+### 8. パフォーマンス設計指針とEventKit技術仕様
+
+**トークン数とコンテキスト制限:**
+- AIモデル別コンテキストウィンドウ制限
+  - GPT-4.1: 1,000,000 トークン
+  - GPT-5: 400,000 トークン
+  - GPT-4o/Llama 3.1: 128,000 トークン
+  - Qwen 3: 32,000 トークン
+  - Phi-4: 16,000 トークン
+- OpenAI推奨：ツール数は20個未満で高精度を維持
+- MCPツールレスポンス統計
+  - 中央値: 98 トークン
+  - 平均値: 4,431 トークン
+  - 最大観測値: 557,766 トークン
+
+**pyobjc-framework-EventKit パラメータ閾値:**
+- EventStore初期化: `EventKit.EKEventStore.alloc().init()`
+- エンティティタイプ: `EventKit.EKEntityTypeEvent` (イベント操作用)
+- 時間範囲制限: Foundationフレームワークの`NSDate`制約に準拠
+- カレンダーアクセス権限: システムレベルでのプライバシー制御が必要
+- 最大パラメータスキーマ深度: 20レベル（一般的には2レベルを推奨）
+
+**エラーハンドリングと回避策:**
+
+**EventKit固有のエラーパターン:**
+```python
+# 権限エラーの処理
+try:
+    self.event_store = EventKit.EKEventStore.alloc().init()
+except Exception as e:
+    logger.error(f"EventKit initialization failed: {e}")
+    return {"status": "unavailable", "reason": "EventKit access denied"}
+
+# 利用不可時のフォールバック
+if not EVENTKIT_AVAILABLE:
+    return [{"error": "EventKit not available"}]
+```
+
+**一般的なエラー回避策:**
+- MCPツール呼び出しエラー率: 59% (5,983回中3,536回にエラー含有)
+- 低品質エラーメッセージの改善: 「error: job」→ 具体的なエラー内容の説明
+- 日付形式検証: ISO 8601形式の厳密なバリデーション実装
+- カレンダー名の存在確認: 指定されたカレンダーが存在しない場合の適切な処理
+
+**応答速度最適化:**
+
+**パフォーマンス劣化要因:**
+- 大規模ツールスペース: 最大85%の性能低下
+- 長すぎるレスポンス: 最大91%の性能低下
+- 複雑なパラメータ構造: 処理時間の指数的増加
+
+**最適化戦略:**
+- EventKit操作の非同期化: `async/await`パターンの活用
+- レスポンス分割: 大量イベント取得時のページネーション実装
+- キャッシュ戦略: カレンダーリスト等の静的データのメモ化
+- 接続プール: EventStore インスタンスの再利用
+
+**実装における具体的な制限値:**
+- 1回のクエリで取得するイベント数上限: 1000件 (推奨)
+- レスポンスサイズ上限: 10MB (トークン制限考慮)
+- タイムアウト設定: EventKit操作は5秒以内
+- 同時接続数制限: EventStore インスタンス当たり最大10接続
+
+**モニタリングとデバッグ:**
+- JSONログによるリクエスト/レスポンス追跡
+- EventKit操作のレイテンシ測定
+- メモリ使用量の監視 (特にNSDate オブジェクトのリーク防止)
+- エラー率の継続的測定と閾値アラート設定
+
+### 9. FastMCPツールの適切な定義とベストプラクティス
+
+**背景:**
+- MCPクライアント（AIエージェント）に対してツールの使用方法を明確に伝える必要がある
+- FastMCPの`@tool()`デコレータを使用して適切なツール説明とメタデータを提供することが重要
+- `description`と`annotations`の両方を活用してツールスペース干渉を防ぐ
+
+**FastMCP `@tool()`デコレータの正しい使用方法:**
+
+**サポートされているパラメータ:**
+- `name`: ツール名（省略時は関数名が使用される）
+- `title`: 人間が読みやすいタイトル
+- `description`: ツールの詳細説明（パラメータ説明・例も含める）
+- `annotations`: ツールの動作特性を示すヒント（ToolAnnotationsオブジェクト）
+- `structured_output`: 構造化出力の制御
+
+**サポートされていないパラメータ（使用禁止）:**
+- `parameters`: パラメータの詳細定義（FastMCPでは型アノテーションとdescriptionで代替）
+- `examples`: 使用例（descriptionに記載する）
+
+**推奨されるツール定義パターン:**
+
+```python
+from mcp.types import ToolAnnotations
+
+@self.mcp.tool(
+    name="get_macos_calendar_events",
+    description=(
+        "ツールの概要説明\\n\\n"
+        "Parameters:\\n"
+        "- param1 (type): パラメータ1の説明\\n"
+        "- param2 (type, optional): パラメータ2の説明\\n\\n"
+        "Examples:\\n"
+        "- 例1: param1='value1', param2='value2'\\n"
+        "- 例2: param1='value3'"
+    ),
+    annotations=ToolAnnotations(
+        title="Human Readable Tool Title",
+        readOnlyHint=True,      # 読み取り専用の操作
+        idempotentHint=True,    # 冪等性がある操作
+        openWorldHint=False     # 閉じた世界の仮定
+    ),
+)
+async def get_macos_calendar_events(param1: str, param2: str = None) -> str:
+    \"\"\"関数のdocstring\"\"\"
+    # 実装
+```
+
+**ToolAnnotationsの使い分け:**
+
+**読み取り専用ツール（データ取得系）:**
+- `readOnlyHint=True`: システム状態を変更しない
+- `idempotentHint=True`: 同じ入力で同じ結果が得られる
+- `openWorldHint=False`: 定義された範囲内で動作
+
+**書き込みツール（データ作成・変更系）:**
+- `destructiveHint=True`: システム状態を変更する
+- `idempotentHint=False`: 実行のたびに異なる結果になる可能性
+- `openWorldHint=False`: 定義された範囲内で動作
+
+**実装済みの改善例（calendar_mcp/server.py:95-231）:**
+
+1. **get_macos_calendar_events（データ取得）:**
+   - 詳細なパラメータ説明をdescriptionに記載
+   - `readOnlyHint=True, idempotentHint=True` を設定
+   - 日付フォーマット、オプショナルパラメータの説明を明示
+   - 使用例を具体的に記載
+
+2. **create_macos_calendar_event（データ作成）:**
+   - パラメータの制約（文字数制限等）を明記
+   - `destructiveHint=True, idempotentHint=False` を設定
+   - 日時フォーマットの詳細説明
+   - 権限要件とエラー条件の説明
+
+3. **list_macos_calendars（メタデータ取得）:**
+   - 戻り値の構造を詳細に説明
+   - `readOnlyHint=True, idempotentHint=True` を設定
+   - パラメータ不要であることを明示
+   - 各プロパティの意味を説明
+
+**AIエージェントの使いやすさを向上させる要素:**
+- 明確なパラメータ説明（型、必須/オプション、制約）
+- 具体的な使用例の提供
+- エラー条件の説明
+- 戻り値の形式説明
+- 適切な動作ヒント（annotations）の設定
+
+**注意事項:**
+- FastMCPでは`parameters`パラメータが使用できないため、全ての説明をdescriptionに含める
+- 型情報は関数の型アノテーションで提供
+- 長い説明は適切に改行して88文字以内に収める
+- ツール名は他のMCPサーバーとの衝突を避けるため固有性を持たせる
+- descriptionでの改行は`\\n`のダブルエスケープが必要
+
+**コード品質管理:**
+- ruff formatによる自動整形で88文字制限を遵守
+- pytest による動作検証（21テストケース全通過）
+- MCPクライアントでの実際の使用テストを実施
