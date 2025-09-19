@@ -61,7 +61,7 @@ echo "   2. 左側で「カレンダー」を選択"
 echo "   3. 「Python」または「ターミナル」にチェックを入れる"
 echo ""
 echo "   💡 アプリが表示されない場合:"
-echo "   uv run python request_calendar_permission.py を実行してください"
+echo "   uv run python script/request_calendar_permission.py を実行してください"
 echo ""
 
 echo "✅ セットアップ完了！"

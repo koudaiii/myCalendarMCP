@@ -31,7 +31,8 @@ uv run pytest tests/ -v || {
 }
 
 echo "🔧 MCPサーバーの基本動作テスト..."
-uv run python request_calendar_permission.py
+uv run python script/debug_tools.py
+uv run python script/request_calendar_permission.py
 
 echo "✅ 全てのテストが完了しました！"
 echo
