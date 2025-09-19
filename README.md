@@ -2,6 +2,16 @@
 
 An MCP (Model Context Protocol) server for accessing macOS Calendar app (EventKit).
 
+- [Features](#features)
+- [Requirements](#requirements)
+  - [macOS Privacy Settings](#macos-privacy-settings)
+- [Setup](#setup)
+- [Starting MCP Server](#starting-mcp-server)
+  - [HTTP Transport Features and Limitations](#http-transport-features-and-limitations)
+  - [VS Code (Claude Code) Configuration](#vs-code-claude-code-configuration)
+- [Direct CLI Usage](#direct-cli-usage)
+- [Troubleshooting](#troubleshooting)
+
 ## Features
 
 - Get calendar events

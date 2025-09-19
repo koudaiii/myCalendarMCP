@@ -2,6 +2,23 @@
 
 macOS の Calendar アプリ（EventKit）にアクセスするための MCP（Model Context Protocol）サーバーです。
 
+<!-- TOC -->
+- [概要](#macos-calendar-mcp-server)
+- [機能](#機能)
+- [必要な環境](#必要な環境)
+  - [macOS プライバシー設定](#macos-プライバシー設定)
+- [セットアップ](#セットアップ)
+- [MCPサーバー起動](#mcpサーバー起動)
+  - [HTTPトランスポートの特徴と制限](#httpトランスポートの特徴と制限)
+    - [SSEトランスポート接続](#sseトランスポート接続)
+    - [Streamable HTTPトランスポート接続](#streamable-httptランスポート接続)
+- [VS Code (Claude Code) での設定](#vs-code-claude-code-での設定)
+- [CLI から直接使用](#cli-から直接使用)
+- [トラブルシューティング](#トラブルシューティング)
+  - [カレンダーにアクセスできない](#❌-カレンダーにアクセスできない)
+  - [uv コマンドが見つからない](#❌-uv-コマンドが見つからない)
+<!-- /TOC -->
+
 ## 機能
 
 - カレンダーイベントの取得
