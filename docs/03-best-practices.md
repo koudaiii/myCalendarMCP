@@ -380,7 +380,7 @@ async def get_events_legacy(...):
     return await self.get_macos_calendar_events(...)
 ```
 
-これらのベストプラクティスに従うことで、高品質で保守可能なMCPサーバーを構築できます。
+これらのベストプラクティスにより、高品質で保守可能なMCPサーバーを構築できます。
 
 ---
 

@@ -147,6 +147,236 @@ class CalendarAssistantApp {
 **script/queryでは不可能な機能:**
 - **LLMによる自然言語理解**: 「来週の仕事の予定」等の意図解釈
 - **動的ツール選択**: 文脈に応じた適切なツールとパラメータの決定
+- **反復的精緻化**: 結果に基づく追加問い合わせとワークフロー調整
+- **並列処理最適化**: 独立性分析に基づく効率的なツール実行
+
+#### script/queryの固定的処理 vs LLM+MCPクライアントの動的処理
+
+**script/queryの制約的フロー:**
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Script as script/query
+    participant Server as CalendarMCPServer
+
+    User->>Script: "来週の重要な会議は？"
+    Script->>Script: 固定パターンマッチング<br/>- "来週" → +7日計算<br/>- その他キーワード無視
+    Script->>Server: ._get_events(固定パラメータ)
+    Server-->>Script: 全イベントデータ
+    Script->>Script: 固定テンプレート適用
+    Script-->>User: 定型出力
+
+    note over Script: 制約:<br/>1. 意図理解の限界<br/>2. 単一問い合わせのみ<br/>3. 追加調査不可<br/>4. 結果カスタマイズ不可
+```
+
+**LLM+MCPクライアントの知的フロー:**
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant LLM as LLM Engine
+    participant Client as MCPクライアント
+    participant Server as CalendarMCPServer
+
+    User->>LLM: "来週の重要な会議の準備は大丈夫？"
+
+    rect rgb(255, 248, 240)
+        LLM->>LLM: 高度な意図解析<br/>- 期間特定 + 重要度判定<br/>- 準備状況評価ニーズ検出<br/>- 実行戦略策定
+    end
+
+    rect rgb(240, 248, 255)
+        LLM->>Client: 段階的実行指示
+        par 並列データ収集
+            Client->>Server: list_macos_calendars()
+        and
+            Client->>Server: get_events(broad_range)
+        end
+        Client->>LLM: 中間結果統合
+    end
+
+    rect rgb(240, 255, 240)
+        LLM->>LLM: 結果分析 + 追加ニーズ判定
+        alt 詳細情報が必要
+            loop 反復的精緻化
+                LLM->>Client: 追加問い合わせ指示
+                Client->>Server: 条件絞り込み要求
+                Server-->>Client: 詳細データ
+                Client->>LLM: 段階的情報提供
+            end
+        end
+    end
+
+    rect rgb(248, 255, 248)
+        LLM->>LLM: 文脈理解 + パーソナライズ
+        LLM-->>User: 知的応答<br/>「3つの重要会議があります。<br/>プロジェクトレビューの準備が<br/>必要そうです。確認しますか？」
+    end
+
+    note over LLM: 優位性:<br/>1. 深い意図理解<br/>2. 動的戦略調整<br/>3. 反復的情報収集<br/>4. 個別化応答
+```
+
+#### LLM+MCPクライアントによる高度な処理能力
+
+**1. 文脈保持と学習:**
+```python
+class ContextualCalendarAgent:
+    def __init__(self):
+        self.conversation_memory = ConversationHistory()
+        self.user_patterns = UserPatternLearner()
+        self.mcp_client = MCPClient()
+
+    async def process_contextual_query(self, query: str):
+        # script/queryにはない文脈理解
+        context = await self.extract_conversation_context(query)
+        learned_preferences = self.user_patterns.get_preferences()
+
+        # 動的戦略策定
+        strategy = await self.llm.plan_execution(
+            query, context, learned_preferences
+        )
+
+        # 適応的ツール実行
+        return await self.execute_adaptive_workflow(strategy)
+```
+
+**2. 並列処理と最適化:**
+```python
+async def optimized_parallel_execution(self, complex_query):
+    # script/queryの逐次処理を超えた並列最適化
+    analysis = await self.llm.analyze_independence(complex_query)
+
+    if analysis.can_parallelize:
+        # 独立性がある場合：並列実行
+        tasks = [
+            self.mcp_client.call_tool("list_calendars"),
+            self.mcp_client.call_tool("get_events", broad_params),
+            self.mcp_client.call_tool("get_events", specific_params)
+        ]
+        results = await asyncio.gather(*tasks)
+    else:
+        # 依存関係がある場合：逐次実行
+        calendar_info = await self.mcp_client.call_tool("list_calendars")
+        optimized_params = self.calculate_params(calendar_info)
+        events = await self.mcp_client.call_tool("get_events", optimized_params)
+
+    return await self.synthesize_intelligent_response(results)
+```
+
+**3. エラー回復と適応:**
+```python
+async def resilient_calendar_access(self, query):
+    try:
+        return await self.primary_execution_strategy(query)
+    except MCPConnectionError:
+        # 接続エラー時の代替戦略
+        return await self.fallback_execution_strategy(query)
+    except MCPTimeoutError:
+        # タイムアウト時の部分実行
+        partial_results = await self.reduced_scope_execution(query)
+        return await self.llm.generate_partial_response(partial_results)
+    except MCPPermissionError:
+        # 権限エラー時のガイダンス生成
+        guidance = await self.llm.generate_permission_guidance(query)
+        return guidance
+```
+
+### 2. アプリケーション統合のエコシステム
+
+script/queryの制約を克服し、MCPクライアントが実現する真のエコシステム統合について詳しく説明します。
+
+#### マルチプラットフォーム対応の実現
+
+**script/queryの制約（単一環境依存）:**
+```bash
+# macOS専用、ローカル実行のみ
+./script/query "今日の予定"
+# → 他のプラットフォームとの統合不可
+# → ネットワーク越しのアクセス不可
+# → 他のアプリケーションからの利用困難
+```
+
+**MCPクライアントによる横断的統合:**
+```python
+# Webアプリケーションでの統合例
+from fastapi import FastAPI
+from mcp_client import MCPClient
+
+app = FastAPI()
+mcp_client = MCPClient(transport="sse", endpoint="http://localhost:3000")
+
+@app.get("/api/intelligent-schedule")
+async def get_intelligent_schedule(user_query: str):
+    """自然言語による高度なスケジュール分析API"""
+
+    # Phase 1: LLMによる意図理解
+    intent_analysis = await llm.analyze_user_intent(user_query)
+
+    # Phase 2: 戦略的データ収集
+    collection_strategy = await llm.plan_data_collection(intent_analysis)
+
+    # Phase 3: 並列MCPツール実行
+    tasks = []
+    if collection_strategy.needs_calendars:
+        tasks.append(mcp_client.call_tool("list_macos_calendars"))
+
+    if collection_strategy.broad_search:
+        tasks.append(mcp_client.call_tool(
+            "get_macos_calendar_events",
+            collection_strategy.broad_params
+        ))
+
+    initial_results = await asyncio.gather(*tasks)
+
+    # Phase 4: 結果分析と追加問い合わせ
+    analysis = await llm.analyze_initial_results(initial_results)
+
+    if analysis.needs_refinement:
+        refined_results = await mcp_client.call_tool(
+            "get_macos_calendar_events",
+            analysis.refined_params
+        )
+        final_data = llm.merge_results(initial_results, refined_results)
+    else:
+        final_data = initial_results
+
+    # Phase 5: 知的応答生成
+    intelligent_response = await llm.generate_actionable_insights(
+        final_data, user_context=intent_analysis
+    )
+
+    return {"insights": intelligent_response, "raw_data": final_data}
+```
+
+**React フロントエンドでの活用:**
+```javascript
+// React アプリケーションでの高度な利用
+const IntelligentCalendarComponent = () => {
+  const [insights, setInsights] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleNaturalQuery = async (userQuery) => {
+    setLoading(true);
+    try {
+      // MCPクライアント統合APIを呼び出し
+      const response = await fetch(`/api/intelligent-schedule?user_query=${encodeURIComponent(userQuery)}`);
+      const data = await response.json();
+
+      // LLMが生成した洞察を表示
+      setInsights(data.insights);
+    } catch (error) {
+      console.error('Intelligent analysis failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <NaturalLanguageInput onSubmit={handleNaturalQuery} />
+      {loading && <IntelligentLoadingIndicator />}
+      {insights && <ActionableInsightsDisplay insights={insights} />}
+    </div>
+  );
+};
+```
 - **結果の自然言語化**: 構造化データから人間に優しい応答生成
 - **複数ツール協調**: LLMが orchestrate する複雑なワークフロー
 

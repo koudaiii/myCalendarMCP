@@ -6,6 +6,11 @@
 
 Model Context Protocol (MCP) は、AIエージェントが外部のツールやデータソースと安全かつ標準化された方法で連携するためのプロトコルです。これまでAIエージェントは専用ツールとセットで開発されてきましたが、MCPにより異なる開発元のエージェントとツールが協力し合う新しい時代を迎えています。
 
+**公式リソース:**
+- [Model Context Protocol 公式サイト](https://modelcontextprotocol.io/)
+- [MCP 仕様書](https://spec.modelcontextprotocol.io/)
+- [GitHub - MCP](https://github.com/modelcontextprotocol)
+
 ### MCPの革新性
 
 **従来の問題:**

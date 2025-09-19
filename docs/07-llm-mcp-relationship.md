@@ -242,7 +242,11 @@ services:
 
 ## 実世界での動作例
 
-### 1. Claude Desktop + mycalendarMCP
+### 1. Claude Desktop + mycalendarMCP の詳細フロー
+
+実際のClaude DesktopとmycalendarMCPの連携は、LLMの推論、MCPクライアントの実行、サーバーの処理が段階的に組み合わされた複雑なプロセスです。
+
+#### 完全な処理フロー
 
 ```mermaid
 sequenceDiagram
@@ -252,40 +256,265 @@ sequenceDiagram
     participant MCP as mycalendarMCP<br/>サーバー
     participant EventKit as EventKit
 
-    User->>Claude: "明日の会議は何時から？"
+    User->>Claude: "来週の重要な会議の準備状況を教えて"
 
-    Note over Claude: LLMが推論:<br/>「明日の予定を取得する必要がある」
+    rect rgb(255, 248, 240)
+        Note over Claude: LLMの高度な推論プロセス
+        Claude->>Claude: 自然言語解析<br/>- 「来週」→ 日付範囲計算<br/>- 「重要な会議」→ 優先度フィルタ<br/>- 「準備状況」→ 詳細分析が必要
+        Claude->>Claude: 実行戦略策定<br/>1. 利用可能ツール確認<br/>2. 段階的データ収集<br/>3. 結果分析と追加問い合わせ判定
+    end
 
-    Claude->>Desktop: ツール呼び出し指示<br/>get_macos_calendar_events<br/>start_date: "2024-09-20"<br/>end_date: "2024-09-20"
+    rect rgb(240, 248, 255)
+        Note over Claude, EventKit: Phase 1: ツール発見
+        Claude->>Desktop: ツール発見要求
+        Desktop->>MCP: tools/list (JSON-RPC)
+        MCP-->>Desktop: ツール一覧応答
+        Desktop-->>Claude: 利用可能機能の報告
+    end
 
-    Note over Claude: LLMは待機状態<br/>実行には関与しない
+    rect rgb(240, 255, 240)
+        Note over Claude, EventKit: Phase 2: 基本データ収集
+        Claude->>Desktop: 初期データ収集指示<br/>get_macos_calendar_events<br/>start_date: "2024-09-23"<br/>end_date: "2024-09-30"
 
-    Desktop->>MCP: JSON-RPC呼び出し
-    MCP->>EventKit: カレンダーデータアクセス
-    EventKit-->>MCP: イベントデータ
-    MCP-->>Desktop: JSON レスポンス
+        Note over Claude: LLMは実行を待機<br/>推論エンジンは停止状態
 
-    Desktop-->>Claude: ツール実行結果
+        Desktop->>MCP: JSON-RPC ツール呼び出し
+        MCP->>EventKit: カレンダーデータアクセス
+        EventKit-->>MCP: イベント情報
+        MCP-->>Desktop: 構造化JSON応答
+        Desktop-->>Claude: 実行結果の提供
+    end
 
-    Note over Claude: LLMが結果を解釈:<br/>「会議データを人間向けに整形」
+    rect rgb(255, 248, 255)
+        Note over Claude: LLMの中間分析
+        Claude->>Claude: 結果評価<br/>- 会議数の確認<br/>- 重要度の推定<br/>- 追加情報の必要性判定
+    end
 
-    Claude-->>User: "明日は午前10時から<br/>チームミーティングがあります"
+    rect rgb(248, 255, 240)
+        Note over Claude, EventKit: Phase 3: 追加詳細調査
+        alt 詳細情報が必要と判断
+            Claude->>Desktop: 追加問い合わせ指示<br/>list_macos_calendars<br/>(重要な会議のカレンダー特定)
+
+            Desktop->>MCP: カレンダー一覧要求
+            MCP->>EventKit: カレンダー情報取得
+            EventKit-->>MCP: カレンダーデータ
+            MCP-->>Desktop: カレンダー一覧
+            Desktop-->>Claude: カレンダー情報
+
+            Claude->>Desktop: 絞り込み問い合わせ指示<br/>get_macos_calendar_events<br/>calendar_name: "仕事"<br/>詳細期間指定
+
+            Desktop->>MCP: 絞り込み要求
+            MCP->>EventKit: 特定カレンダーアクセス
+            EventKit-->>MCP: 絞り込みイベント
+            MCP-->>Desktop: 詳細データ
+            Desktop-->>Claude: 追加情報
+        end
+    end
+
+    rect rgb(248, 248, 255)
+        Note over Claude: LLMの統合分析と応答生成
+        Claude->>Claude: 包括的分析<br/>- 全データの統合<br/>- 重要度パターンの認識<br/>- 準備状況の評価<br/>- 個別アドバイスの生成
+        Claude-->>User: 知的統合応答<br/>「来週は3つの重要会議があります：<br/>1. プロジェクトレビュー（火曜10時）<br/>   → 進捗資料の準備が必要<br/>2. クライアント面談（木曜14時）<br/>   → 提案書の最終確認推奨<br/>3. 四半期計画（金曜9時）<br/>   → 予算資料の事前共有が効果的<br/>準備を始めましょうか？」
+    end
 ```
 
-### 2. script/query との処理時間比較
+#### script/query との詳細比較
 
-| フェーズ | script/query | LLM + MCPクライアント |
-|---------|-------------|----------------------|
-| **意図理解** | 0ms (人間が事前実行) | 200ms (LLM推論) |
-| **パラメータ構築** | 0ms (スクリプト内で固定) | 0ms (LLMが既に構築) |
-| **ツール実行** | 150ms (直接呼び出し) | 180ms (MCP経由) |
-| **結果整形** | 50ms (固定フォーマット) | 100ms (LLM生成) |
-| **合計** | **200ms** | **480ms** |
+**script/queryの固定的処理:**
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Script as script/query
+    participant Server as CalendarMCPServer
+    participant EventKit as EventKit
 
-**LLMを使う価値:**
-- **柔軟性**: 「明日の会議」「来週の重要な予定」等の自然言語対応
-- **文脈理解**: 過去の会話を踏まえた適切な応答
-- **応答品質**: 人間に優しい自然な表現
+    User->>Script: ./script/query "来週の会議"
+
+    rect rgb(255, 240, 240)
+        Note over Script: 限定的処理
+        Script->>Script: 固定パターンマッチング<br/>- "来週" → +7日計算のみ<br/>- 他のニュアンス無視
+    end
+
+    rect rgb(240, 240, 255)
+        Note over Script, EventKit: 単一処理パス
+        Script->>Server: CalendarMCPServer()初期化
+        Script->>Server: ._get_events(固定パラメータ)
+        Server->>EventKit: EventKit API 呼び出し
+        EventKit-->>Server: 全データ
+        Server-->>Script: Pythonオブジェクト
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Script: 固定出力
+        Script->>Script: テンプレート適用<br/>- 絵文字付加<br/>- 固定フォーマット<br/>- カスタマイズ不可
+        Script-->>User: 定型テキスト
+    end
+
+    Note over User, EventKit: script/queryの制約:<br/>1. 意図理解の限界<br/>2. 単一問い合わせ<br/>3. 追加調査不可<br/>4. 固定出力のみ
+```
+
+#### 処理の複雑性と知能性の比較
+
+**処理ステップ数の比較:**
+
+| 段階 | script/query | LLM+MCPクライアント |
+|------|-------------|-------------------|
+| **意図理解** | 1ステップ（固定） | 3-5ステップ（動的） |
+| **データ収集** | 1回（固定範囲） | 1-4回（段階的） |
+| **結果分析** | なし | 2-3ステップ |
+| **追加問い合わせ** | なし | 0-3回（必要時） |
+| **応答生成** | 1ステップ（固定） | 2-4ステップ（知的） |
+| **合計** | **3ステップ** | **8-19ステップ** |
+
+**並列処理の活用:**
+
+```python
+# script/query: 逐次処理のみ
+def query_calendar():
+    server = CalendarMCPServer()
+    events = server._get_events(params)  # 単一呼び出し
+    return format_output(events)         # 固定フォーマット
+
+# LLM+MCPクライアント: 並列最適化
+async def intelligent_calendar_query():
+    # Phase 1: 並列データ収集
+    calendar_task = mcp_client.call_tool("list_calendars")
+    events_task = mcp_client.call_tool("get_events", broad_range)
+
+    calendars, events = await asyncio.gather(calendar_task, events_task)
+
+    # Phase 2: LLMによる分析
+    analysis = await llm.analyze_calendar_data(calendars, events)
+
+    # Phase 3: 必要に応じた追加問い合わせ
+    if analysis.needs_detail:
+        detailed_events = await mcp_client.call_tool(
+            "get_events", analysis.refined_params
+        )
+        events = merge_and_enhance(events, detailed_events)
+
+    # Phase 4: 知的応答生成
+    return await llm.generate_contextual_response(events, user_context)
+```
+
+### 2. なぜLLMとMCPクライアントの複雑な統合が必要か
+
+#### 単純なMCPサーバー呼び出しでは実現できない価値
+
+**MCPサーバーのみの限界:**
+```python
+# 単純なMCPサーバー呼び出し
+response = await mcp_server.get_events(
+    start_date="2024-09-23",
+    end_date="2024-09-30"
+)
+# → 全イベントの構造化データのみ
+# → ユーザーが手動で重要性を判断必要
+# → 準備状況の評価は不可能
+```
+
+**LLM+MCPクライアントが提供する付加価値:**
+```python
+# 知的な統合システム
+class IntelligentCalendarSystem:
+    async def analyze_meeting_preparation(self, user_query: str):
+        # 1. 意図の深い理解
+        intent = await self.llm.understand_complex_intent(user_query)
+
+        # 2. 戦略的データ収集
+        strategy = await self.llm.plan_data_collection(intent)
+
+        # 3. 並列・段階的実行
+        raw_data = await self.mcp_client.execute_strategy(strategy)
+
+        # 4. 知的分析
+        analysis = await self.llm.analyze_meeting_patterns(raw_data)
+
+        # 5. 個別化された実用的アドバイス
+        return await self.llm.generate_actionable_advice(analysis)
+```
+
+#### LLMとMCPクライアントの相乗効果
+
+**LLMの認知機能:**
+- 自然言語の深い理解
+- 文脈とパターンの認識
+- 戦略的思考と判断
+- 個別化されたコミュニケーション
+
+**MCPクライアントの実行機能:**
+- 並列・逐次処理の最適化
+- エラー回復と堅牢性
+- 複数システムの統合
+- プロトコルレベルの抽象化
+
+### 3. 処理時間と価値の比較
+
+| フェーズ | script/query | LLM + MCPクライアント | 付加価値 |
+|---------|-------------|----------------------|---------|
+| **意図理解** | 0ms (人間が事前実行) | 200ms (LLM推論) | 自然言語の深い理解 |
+| **戦略策定** | 0ms (固定処理) | 50ms (動的計画) | 最適化された実行計画 |
+| **ツール発見** | なし | 30ms (capabilities確認) | 動的ツール選択 |
+| **データ収集** | 150ms (単一呼び出し) | 180ms (並列MCP呼び出し) | 効率的な並列処理 |
+| **結果分析** | なし | 100ms (LLM分析) | パターン認識と評価 |
+| **追加調査** | なし | 0-200ms (必要時のみ) | 動的な情報補完 |
+| **応答生成** | 50ms (固定フォーマット) | 150ms (知的生成) | 個別化された実用的アドバイス |
+| **合計** | **200ms** | **560-910ms** | **2.8-4.6倍の時間で10倍以上の価値** |
+
+#### なぜ追加の時間投資が価値を生むか
+
+**script/queryの出力例:**
+```
+📅 クエリ: 来週の会議
+📍 期間: 2024-09-23 から 2024-09-30
+
+📋 3件のイベントが見つかりました:
+1. プロジェクトレビュー (火曜 10:00-11:00)
+2. クライアント面談 (木曜 14:00-15:30)
+3. 四半期計画会議 (金曜 09:00-12:00)
+```
+
+**LLM+MCPクライアントの出力例:**
+```
+来週は重要な会議が3つあります：
+
+🔍 **プロジェクトレビュー** (火曜 10:00-11:00)
+→ 進捗資料の準備が必要です
+→ 前回の課題フォローアップを確認しましょう
+→ 推奨準備時間: 2時間
+
+📊 **クライアント面談** (木曜 14:00-15:30)
+→ 提案書の最終チェックを推奨します
+→ 類似案件の成功事例を用意すると効果的です
+→ 事前資料送付: 水曜日までに
+
+📈 **四半期計画会議** (金曜 09:00-12:00)
+→ 予算資料の事前共有が重要です
+→ 他部署との調整が必要な項目があります
+→ 準備チェックリストを作成しました
+
+準備を始めますか？優先順位をつけて進めましょう。
+```
+
+**価値創造の本質:**
+LLM+MCPクライアントシステムは、単なるデータ取得を超えて以下の価値を創造します：
+
+1. **実用的洞察**: 単なる事実の羅列から、実行可能なアドバイスへ
+2. **文脈理解**: ユーザーの役割、プロジェクト、過去の行動パターンを考慮
+3. **予測的支援**: 潜在的な課題と対策の提案
+4. **個別化**: ユーザー固有のニーズと状況への適応
+
+#### 複雑性の必要性
+
+このレベルの価値創造には、単純なMCPサーバー呼び出しでは不可能な以下の要素が必要です：
+
+- **LLMの認知機能**: 自然言語理解、文脈把握、戦略的思考
+- **MCPクライアントの実行機能**: 並列処理、エラー回復、システム統合
+- **反復的精緻化**: 結果に基づく動的な追加問い合わせ
+- **個別化エンジン**: ユーザー固有の文脈とニーズへの適応
+
+**結論:**
+2.8-4.6倍の処理時間で10倍以上の価値を提供するLLM+MCPクライアントシステムは、現代のAIアシスタントにとって必要不可欠な複雑性を持っています。この複雑性こそが、単純なデータ取得を超えた真の知的支援を実現する鍵となります。
 
 ## 開発者への実装ガイダンス
 

@@ -5,14 +5,13 @@ macOSカレンダーとAIエージェントを繋ぐModel Context Protocol (MCP)
 ## ドキュメント構成
 
 ### [01. MCPとは - Model Context Protocol概要](./01-mcp-overview.md)
-- MCPの基本概念と革新性
-- MCPアーキテクチャの基本要素
-- トランスポート層（stdio, SSE, streamable-http）
-- ツール、リソース、プロンプトの概念
-- MCPエコシステムの現状と課題
-- 次世代AI開発基盤としての位置づけ
+
+Model Context Protocolの基本概念から最新動向まで、MCPの全体像を解説します。AIエージェントと外部ツールの連携を革新するプロトコルとして、MCPの価値提供と従来課題の解決方法を説明します。標準化アーキテクチャによる相互運用性、多様なトランスポート層、ツールスペース干渉の課題と解決策を含みます。
 
 ### [02. アーキテクチャ](./02-architecture.md)
+
+mycalendarMCPプロジェクトの技術詳細を解説します。全体構造から個別コンポーネント実装まで、開発者向けの要素を段階的に説明します。EventKitとFastMCPの統合、ツール・リソース実装パターン、エラーハンドリング戦略を含みます。asyncio統合トランスポート層、ログ・監視システム設計、パフォーマンス最適化とセキュリティ考慮事項も扱います。主な構成要素：
+
 - プロジェクト構造とコアコンポーネント
 - EventKit統合とFastMCP統合
 - ツール・リソース実装パターン
@@ -22,6 +21,9 @@ macOSカレンダーとAIエージェントを繋ぐModel Context Protocol (MCP)
 - パフォーマンス設計とセキュリティ
 
 ### [03. ベストプラクティス](./03-best-practices.md)
+
+高品質MCPサーバー構築の実践ガイドラインを提供します。ツールスペース干渉の回避、固有性を保つツール命名規則、FastMCPを活用した効果的ツール定義を説明します。パフォーマンス改善技術、段階的エラーハンドリング、構造化ログ・監視システム実装、テスト設計からデプロイまでの運用ベストプラクティスを扱います。カバー分野：
+
 - ツールスペース干渉の回避策
 - 固有性を持つツール名の採用
 - FastMCPツール定義のベストプラクティス
@@ -31,18 +33,22 @@ macOSカレンダーとAIエージェントを繋ぐModel Context Protocol (MCP)
 - テスト設計とデプロイメント
 
 ### [04. トラブルシューティング](./04-troubleshooting.md)
-- よくある問題と解決策
-  - Asyncio Event Loop競合エラー
-  - EventKitアクセス権限エラー
-  - テスト実行エラー
-  - JSONログ出力の問題
-  - パフォーマンス問題
-  - MCPクライアント接続エラー
-  - 日付フォーマットエラー
-- デバッグツールと監視方法
-- システム要件確認スクリプト
+
+開発・運用時の典型的問題に対する実践的解決方法を提供します。Asyncio Event Loop競合エラーについてはFastMCP内部動作を踏まえた根本的解決策を説明します。EventKitアクセス権限設定、テスト実行時anyioバックエンド設定、JSONログ問題診断を詳述します。パフォーマンス問題診断・改善、MCPクライアント接続デバッグ、柔軟な日付フォーマット対応実装も含みます。専用デバッグツール作成と継続的監視システム構築も解説します。主なトピック：
+
+- Asyncio Event Loop競合エラーの根本的解決
+- EventKitアクセス権限の設定と診断
+- テスト実行エラーの対処法
+- JSONログ出力の問題解決
+- パフォーマンス問題の診断と最適化
+- MCPクライアント接続のデバッグ
+- 日付フォーマットエラーの柔軟な対応
+- 専用デバッグツールと監視システムの構築
 
 ### [05. 呼び出し方法の比較](./05-call-methods-comparison.md)
+
+mycalendarMCPで提供される2つのアクセス方法の包括的な比較分析を行います。script/queryによる直接呼び出しとMCPクライアント経由のプロトコルベース呼び出しについて、技術的特徴、実装アプローチ、パフォーマンス特性を詳細に比較します。セキュリティ、運用性、開発効率の観点から各手法の適用場面を明確化し、実際のデータフローとログ出力の違いも具体例とともに示します。最終的に、開発フェーズと本番運用での使い分け戦略、ハイブリッドアプローチによる段階的移行方法について実践的なガイダンスを提供します。分析内容には以下が含まれます：
+
 - script/query（直接呼び出し）vs MCPクライアント（プロトコル経由）
 - 技術的特徴と実装方法の詳細比較
 - パフォーマンス・セキュリティ・運用面での違い
@@ -51,6 +57,9 @@ macOSカレンダーとAIエージェントを繋ぐModel Context Protocol (MCP)
 - ハイブリッドアプローチと移行戦略
 
 ### [06. MCPクライアントの意義](./06-mcp-client-significance.md)
+
+script/queryとの詳細な比較を通じて、MCPアーキテクチャにおけるサーバー・クライアントの本質的な役割分担を明らかにします。単純な機能比較を超えて、MCPクライアントが実現する戦略的価値とアーキテクチャの進化について深く掘り下げます。AIエージェントとの統合がもたらす新たな可能性、エンタープライズ環境での大規模システム統合、分散アーキテクチャによって形成される協調的エコシステムについて具体例とともに解説します。また、プロトコル設計に込められた革新的思想と、実際のビジネス環境での適用シナリオ、他の技術と比較した場合の技術的優位性についても詳述しています。主な考察ポイントは以下の通りです：
+
 - script/queryとの比較から見えるサーバー・クライアントの役割分担
 - MCPクライアントの戦略的価値とアーキテクチャ進化
 - AIエージェント統合とエンタープライズ統合の実現
@@ -59,6 +68,9 @@ macOSカレンダーとAIエージェントを繋ぐModel Context Protocol (MCP)
 - 実世界での適用シナリオと技術的優位性
 
 ### [07. LLMとMCPの正確な関係](./07-llm-mcp-relationship.md)
+
+MCPアーキテクチャを語る際によく生じる誤解を解消し、LLMとMCPクライアントの正確な関係を明確にします。LLM自体はツールを直接実行せず、推論・意図理解・応答生成に特化した役割を担うことを詳しく説明します。実際のツール実行はMCPクライアントが行い、セキュリティとプロセス分離が厳密に設計されていることを、Claude DesktopやGitHub Copilot等の実例とともに解説します。開発者が適切なLLM統合システムを構築するための実装ガイダンス、エラーハンドリングのベストプラクティス、そして他のAIアシスタントとの比較を通じた正しいアーキテクチャ理解を提供します。解説内容には以下が含まれます：
+
 - LLMの役割と制約の正確な理解
 - LLM・MCPクライアント・MCPサーバーの責任分離
 - セキュリティとプロセス分離の設計思想
@@ -124,8 +136,14 @@ macOSカレンダーとAIエージェントを繋ぐModel Context Protocol (MCP)
 - [pyproject.toml](../pyproject.toml) - 依存関係と設定
 
 ### 外部リソース
+
+**Model Context Protocol 公式:**
+- [Model Context Protocol 公式サイト](https://modelcontextprotocol.io/) - MCP概要と最新情報
+- [MCP 仕様書](https://spec.modelcontextprotocol.io/) - MCPプロトコル仕様
+- [GitHub - MCP](https://github.com/modelcontextprotocol) - 公式リポジトリ
+
+**技術関連:**
 - [FastMCP Documentation](https://github.com/jlowin/fastmcp) - FastMCPフレームワーク
-- [MCP Specification](https://spec.modelcontextprotocol.io/) - MCPプロトコル仕様
 - [Apple EventKit Documentation](https://developer.apple.com/documentation/eventkit) - EventKit API
 - [Tool-space Interference Research](https://www.microsoft.com/en-us/research/blog/tool-space-interference-in-the-mcp-era-designing-for-agent-compatibility-at-scale/) - MCP設計指針
 
