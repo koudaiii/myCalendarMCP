@@ -93,17 +93,19 @@ class CalendarMCPServer:
             return json.dumps(calendars, indent=2)
 
         @self.mcp.tool()
-        async def get_events(
+        async def get_macos_calendar_events(
             start_date: str, end_date: str, calendar_name: str = None
         ) -> str:
-            """Get calendar events for a date range."""
+            """Get macOS calendar events for a date range."""
             args = {
                 "start_date": start_date,
                 "end_date": end_date,
                 "calendar_name": calendar_name,
             }
             log_json_data(
-                "TOOL REQUEST", {"name": "get_events", "arguments": args}, "INCOMING"
+                "TOOL REQUEST",
+                {"name": "get_macos_calendar_events", "arguments": args},
+                "INCOMING",
             )
             events = await self._get_events(
                 start_date=start_date,
@@ -114,14 +116,14 @@ class CalendarMCPServer:
             return json.dumps(events, indent=2)
 
         @self.mcp.tool()
-        async def create_event(
+        async def create_macos_calendar_event(
             title: str,
             start_date: str,
             end_date: str,
             calendar_name: str = None,
             notes: str = None,
         ) -> str:
-            """Create a new calendar event."""
+            """Create a new macOS calendar event."""
             args = {
                 "title": title,
                 "start_date": start_date,
@@ -130,7 +132,9 @@ class CalendarMCPServer:
                 "notes": notes,
             }
             log_json_data(
-                "TOOL REQUEST", {"name": "create_event", "arguments": args}, "INCOMING"
+                "TOOL REQUEST",
+                {"name": "create_macos_calendar_event", "arguments": args},
+                "INCOMING",
             )
             result = await self._create_event(
                 title=title,
@@ -144,10 +148,12 @@ class CalendarMCPServer:
             return response
 
         @self.mcp.tool()
-        async def list_calendars() -> str:
-            """List all available calendars."""
+        async def list_macos_calendars() -> str:
+            """List all available macOS calendars."""
             log_json_data(
-                "TOOL REQUEST", {"name": "list_calendars", "arguments": {}}, "INCOMING"
+                "TOOL REQUEST",
+                {"name": "list_macos_calendars", "arguments": {}},
+                "INCOMING",
             )
             calendars = await self._get_calendars()
             log_json_data("TOOL RESPONSE", calendars, "OUTGOING")

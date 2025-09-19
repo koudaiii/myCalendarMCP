@@ -132,11 +132,11 @@ class TestCalendarMCPTools:
         # Get available tools
         tools = await server.mcp.list_tools()
         tool_names = [tool.name for tool in tools]
-        assert "get_events" in tool_names
+        assert "get_macos_calendar_events" in tool_names
 
         # Call the tool through MCP
         result = await server.mcp.call_tool(
-            "get_events",
+            "get_macos_calendar_events",
             {
                 "start_date": "2024-01-01",
                 "end_date": "2024-01-02"
@@ -155,11 +155,11 @@ class TestCalendarMCPTools:
         # Get available tools
         tools = await server.mcp.list_tools()
         tool_names = [tool.name for tool in tools]
-        assert "create_event" in tool_names
+        assert "create_macos_calendar_event" in tool_names
 
         # Call the tool through MCP
         result = await server.mcp.call_tool(
-            "create_event",
+            "create_macos_calendar_event",
             {
                 "title": "Test Event",
                 "start_date": "2024-01-01 10:00",
@@ -178,10 +178,10 @@ class TestCalendarMCPTools:
         # Get available tools
         tools = await server.mcp.list_tools()
         tool_names = [tool.name for tool in tools]
-        assert "list_calendars" in tool_names
+        assert "list_macos_calendars" in tool_names
 
         # Call the tool through MCP
-        result = await server.mcp.call_tool("list_calendars", {})
+        result = await server.mcp.call_tool("list_macos_calendars", {})
 
         # Should return tuple of (content_list, result_dict)
         content_list, result_dict = result
@@ -251,7 +251,7 @@ class TestCalendarMCPTools:
         """Test that MCP tools are properly registered."""
         tools = await server.mcp.list_tools()
         tool_names = [tool.name for tool in tools]
-        expected_tools = ["get_events", "create_event", "list_calendars"]
+        expected_tools = ["get_macos_calendar_events", "create_macos_calendar_event", "list_macos_calendars"]
 
         for tool_name in expected_tools:
             assert tool_name in tool_names, f"Tool {tool_name} not registered"
@@ -259,7 +259,7 @@ class TestCalendarMCPTools:
     async def test_get_events_tool_with_all_parameters(self, server):
         """Test get_events tool with all parameters."""
         result = await server.mcp.call_tool(
-            "get_events",
+            "get_macos_calendar_events",
             {
                 "start_date": "2024-01-01",
                 "end_date": "2024-01-31",
@@ -276,7 +276,7 @@ class TestCalendarMCPTools:
     async def test_create_event_tool_with_all_parameters(self, server):
         """Test create_event tool with all parameters."""
         result = await server.mcp.call_tool(
-            "create_event",
+            "create_macos_calendar_event",
             {
                 "title": "Important Meeting",
                 "start_date": "2024-02-15 14:00",
@@ -295,7 +295,7 @@ class TestCalendarMCPTools:
         """Test error handling in tool calls."""
         # Test with invalid date format
         result = await server.mcp.call_tool(
-            "get_events",
+            "get_macos_calendar_events",
             {
                 "start_date": "invalid-date",
                 "end_date": "2024-01-01"
@@ -345,7 +345,7 @@ class TestCalendarMCPTools:
         """Test that tool responses are properly formatted."""
         # Test get_events response format
         result = await server.mcp.call_tool(
-            "get_events",
+            "get_macos_calendar_events",
             {"start_date": "2024-01-01", "end_date": "2024-01-02"}
         )
 
@@ -361,7 +361,7 @@ class TestCalendarMCPTools:
 
         # Test create_event response format
         result = await server.mcp.call_tool(
-            "create_event",
+            "create_macos_calendar_event",
             {
                 "title": "Test",
                 "start_date": "2024-01-01 10:00",
