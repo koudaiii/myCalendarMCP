@@ -9,6 +9,25 @@ from mcp.server import FastMCP
 
 logger = logging.getLogger(__name__)
 
+# JSONデータのログ出力用ロガー
+json_logger = logging.getLogger(f"{__name__}.json_data")
+json_logger.setLevel(logging.INFO)
+
+
+def log_json_data(data_type: str, data: Any, direction: str = ""):
+    """JSON データをログ出力する"""
+    try:
+        if isinstance(data, (dict, list)):
+            json_str = json.dumps(data, indent=2, ensure_ascii=False)
+        else:
+            json_str = str(data)
+
+        prefix = f"[{direction}] " if direction else ""
+        json_logger.info(f"{prefix}{data_type}:\n{json_str}")
+    except Exception as e:
+        json_logger.error(f"Failed to log {data_type}: {e}")
+
+
 try:
     import EventKit
     import Foundation
@@ -27,18 +46,30 @@ class CalendarMCPServer:
 
         # EventKit の初期化
         if EVENTKIT_AVAILABLE:
+            logger.info("EventKit framework is available, initializing...")
             try:
                 self.event_store = EventKit.EKEventStore.alloc().init()
-                # EventKit framework initialized successfully
-            except Exception:
-                # EventKit initialization error
-                pass
+                logger.info("EventKit framework initialized successfully")
+                log_json_data(
+                    "EVENTKIT INIT",
+                    {"status": "success", "event_store": "initialized"},
+                    "SYSTEM",
+                )
+            except Exception as e:
+                logger.error(f"EventKit initialization failed: {e}")
+                log_json_data(
+                    "EVENTKIT INIT", {"status": "error", "error": str(e)}, "SYSTEM"
+                )
         else:
-            # EventKit framework not available
-            pass
+            logger.warning("EventKit framework not available")
+            log_json_data(
+                "EVENTKIT INIT",
+                {"status": "unavailable", "reason": "EventKit not installed"},
+                "SYSTEM",
+            )
 
         self._setup_handlers()
-        # MCP handlers have been set up
+        logger.info("MCP handlers have been set up")
 
     def _setup_handlers(self):
         """Setup MCP server handlers."""
@@ -46,13 +77,19 @@ class CalendarMCPServer:
         @self.mcp.resource("calendar://events")
         async def list_events():
             """List available calendar events."""
+            log_json_data("RESOURCE REQUEST", {"uri": "calendar://events"}, "INCOMING")
             events = await self._get_events()
+            log_json_data("RESOURCE RESPONSE", events, "OUTGOING")
             return json.dumps(events, indent=2)
 
         @self.mcp.resource("calendar://calendars")
         async def list_calendars_resource():
             """List available calendars."""
+            log_json_data(
+                "RESOURCE REQUEST", {"uri": "calendar://calendars"}, "INCOMING"
+            )
             calendars = await self._get_calendars()
+            log_json_data("RESOURCE RESPONSE", calendars, "OUTGOING")
             return json.dumps(calendars, indent=2)
 
         @self.mcp.tool()
@@ -60,11 +97,20 @@ class CalendarMCPServer:
             start_date: str, end_date: str, calendar_name: str = None
         ) -> str:
             """Get calendar events for a date range."""
+            args = {
+                "start_date": start_date,
+                "end_date": end_date,
+                "calendar_name": calendar_name,
+            }
+            log_json_data(
+                "TOOL REQUEST", {"name": "get_events", "arguments": args}, "INCOMING"
+            )
             events = await self._get_events(
                 start_date=start_date,
                 end_date=end_date,
                 calendar_name=calendar_name,
             )
+            log_json_data("TOOL RESPONSE", events, "OUTGOING")
             return json.dumps(events, indent=2)
 
         @self.mcp.tool()
@@ -76,6 +122,16 @@ class CalendarMCPServer:
             notes: str = None,
         ) -> str:
             """Create a new calendar event."""
+            args = {
+                "title": title,
+                "start_date": start_date,
+                "end_date": end_date,
+                "calendar_name": calendar_name,
+                "notes": notes,
+            }
+            log_json_data(
+                "TOOL REQUEST", {"name": "create_event", "arguments": args}, "INCOMING"
+            )
             result = await self._create_event(
                 title=title,
                 start_date=start_date,
@@ -83,12 +139,18 @@ class CalendarMCPServer:
                 calendar_name=calendar_name,
                 notes=notes,
             )
-            return f"Event created successfully: {result}"
+            response = f"Event created successfully: {result}"
+            log_json_data("TOOL RESPONSE", {"result": response}, "OUTGOING")
+            return response
 
         @self.mcp.tool()
         async def list_calendars() -> str:
             """List all available calendars."""
+            log_json_data(
+                "TOOL REQUEST", {"name": "list_calendars", "arguments": {}}, "INCOMING"
+            )
             calendars = await self._get_calendars()
+            log_json_data("TOOL RESPONSE", calendars, "OUTGOING")
             return json.dumps(calendars, indent=2)
 
     async def _get_calendars(self) -> List[Dict[str, Any]]:
@@ -112,9 +174,17 @@ class CalendarMCPServer:
                         ),
                     }
                 )
+            logger.info(f"Successfully retrieved {len(result)} calendars")
             return result
         except Exception as e:
-            return [{"error": f"Failed to get calendars: {str(e)}"}]
+            error_msg = f"Failed to get calendars: {str(e)}"
+            logger.error(error_msg)
+            log_json_data(
+                "CALENDAR ERROR",
+                {"operation": "get_calendars", "error": str(e)},
+                "ERROR",
+            )
+            return [{"error": error_msg}]
 
     async def _get_events(
         self,
@@ -171,7 +241,20 @@ class CalendarMCPServer:
 
             return result
         except Exception as e:
-            return [{"error": f"Failed to get events: {str(e)}"}]
+            error_msg = f"Failed to get events: {str(e)}"
+            logger.error(error_msg)
+            log_json_data(
+                "EVENT ERROR",
+                {
+                    "operation": "get_events",
+                    "error": str(e),
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "calendar_name": calendar_name,
+                },
+                "ERROR",
+            )
+            return [{"error": error_msg}]
 
     async def _create_event(
         self,
@@ -187,12 +270,30 @@ class CalendarMCPServer:
 
         try:
             # Request access to calendar
+            logger.info("Requesting calendar access permissions...")
+            log_json_data(
+                "CALENDAR ACCESS REQUEST",
+                {"entity_type": "EKEntityTypeEvent", "operation": "create_event"},
+                "SYSTEM",
+            )
+
             access_granted = self.event_store.requestAccessToEntityType_completion_(
                 EventKit.EKEntityTypeEvent, None
             )
 
             if not access_granted:
+                logger.warning("Calendar access denied by user")
+                log_json_data(
+                    "CALENDAR ACCESS DENIED",
+                    {"reason": "user_denied_permission", "operation": "create_event"},
+                    "WARNING",
+                )
                 return "Calendar access denied"
+            else:
+                logger.info("Calendar access granted")
+                log_json_data(
+                    "CALENDAR ACCESS GRANTED", {"operation": "create_event"}, "SYSTEM"
+                )
 
             event = EventKit.EKEvent.eventWithEventStore_(self.event_store)
             event.setTitle_(title)
@@ -234,12 +335,44 @@ class CalendarMCPServer:
             )
 
             if success:
+                logger.info(f"Event '{title}' created successfully")
+                log_json_data(
+                    "EVENT CREATED",
+                    {
+                        "title": title,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "calendar": calendar_name or "default",
+                        "status": "success",
+                    },
+                    "SYSTEM",
+                )
                 return f"Event '{title}' created successfully"
             else:
+                logger.error("Failed to save event to calendar")
+                log_json_data(
+                    "EVENT SAVE FAILED",
+                    {"title": title, "reason": "save_operation_failed"},
+                    "ERROR",
+                )
                 return "Failed to save event"
 
         except Exception as e:
-            return f"Failed to create event: {str(e)}"
+            error_msg = f"Failed to create event: {str(e)}"
+            logger.error(error_msg)
+            log_json_data(
+                "CREATE EVENT ERROR",
+                {
+                    "operation": "create_event",
+                    "error": str(e),
+                    "title": title,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "calendar_name": calendar_name,
+                },
+                "ERROR",
+            )
+            return error_msg
 
 
 async def main():
@@ -260,21 +393,68 @@ async def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+
+    # JSONロガーの設定
+    json_handler = logging.StreamHandler()
+    json_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(message)s"))
+    json_logger.addHandler(json_handler)
+
     logger.info(
         f"🚀 Starting macOS Calendar MCP Server with {args.transport} transport"
     )
     logger.info("📡 Press Ctrl+C to exit")
+    logger.info("📝 JSON request/response logging enabled")
 
-    server_instance = CalendarMCPServer()
+    log_json_data(
+        "SERVER STARTUP",
+        {
+            "transport": args.transport,
+            "mount_path": args.mount_path,
+            "timestamp": datetime.now().isoformat(),
+        },
+        "SYSTEM",
+    )
 
-    # FastMCP provides multiple transport options
-    # Use the async version to avoid event loop conflicts
-    if args.transport == "sse":
-        await server_instance.mcp.run_sse_async(mount_path=args.mount_path)
-    elif args.transport == "stdio":
-        await server_instance.mcp.run_stdio_async()
-    elif args.transport == "streamable-http":
-        await server_instance.mcp.run_streamable_http_async()
-    else:
-        # Fallback for unknown transports
-        server_instance.mcp.run(transport=args.transport, mount_path=args.mount_path)
+    try:
+        server_instance = CalendarMCPServer()
+
+        # FastMCP provides multiple transport options
+        # Use the async version to avoid event loop conflicts
+        if args.transport == "sse":
+            logger.info(f"Starting SSE server on mount path: {args.mount_path}")
+            await server_instance.mcp.run_sse_async(mount_path=args.mount_path)
+        elif args.transport == "stdio":
+            logger.info("Starting STDIO server")
+            await server_instance.mcp.run_stdio_async()
+        elif args.transport == "streamable-http":
+            logger.info("Starting Streamable HTTP server")
+            await server_instance.mcp.run_streamable_http_async()
+        else:
+            logger.warning(f"Unknown transport: {args.transport}, using fallback")
+            server_instance.mcp.run(
+                transport=args.transport, mount_path=args.mount_path
+            )
+    except KeyboardInterrupt:
+        logger.info("🚫 Server shutdown requested by user")
+        log_json_data(
+            "SERVER SHUTDOWN",
+            {"reason": "user_interrupt", "timestamp": datetime.now().isoformat()},
+            "SYSTEM",
+        )
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        log_json_data(
+            "SERVER ERROR",
+            {
+                "error": str(e),
+                "transport": args.transport,
+                "timestamp": datetime.now().isoformat(),
+            },
+            "ERROR",
+        )
+        raise
+    finally:
+        logger.info("💯 Server stopped")
+        log_json_data(
+            "SERVER STOPPED", {"timestamp": datetime.now().isoformat()}, "SYSTEM"
+        )
