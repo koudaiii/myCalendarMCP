@@ -20,7 +20,7 @@
 
 ### MCPとは何か
 
-Model Context Protocol (MCP) は、AIエージェントが外部のツールやデータソースと安全かつ標準化された方法で連携するためのプロトコルです。これまでAIエージェントは専用ツールとセットで開発されてきましたが、MCPにより異なる開発元のエージェントとツールが協力し合う新しい時代を迎えています。
+Anthropicから発表された Model Context Protocol (MCP) は、AIエージェントが外部のツールやデータソースと安全かつ標準化された方法で連携するためのプロトコルです。これまでAIエージェントは専用ツールとセットで開発されてきましたが、MCPにより異なる開発元のエージェントとツールが協力し合う新しい時代を迎えています。
 
 **公式リソース:**
 - [Model Context Protocol 公式サイト](https://modelcontextprotocol.io/)
@@ -100,6 +100,30 @@ script/server --transport streamable-http
 
 ## MCPエコシステムの現状と課題
 
+### MCPのエコシステム
+
+
+```mermaid
+graph TD;
+    ユーザ -->|1 ユーザ発言・ツール定義の入力| バックエンド;
+    バックエンド -->|2 ツール選択・パラメータ抽出結果| LLM;
+    バックエンド --> MCPクライアント;
+    MCPクライアント -->|3 ツール処理リクエスト| Azure_AI_Search用_MCPサーバ;
+    MCPクライアント --> Cosmos_DB用_MCPサーバ;
+    MCPクライアント --> Github_API用_MCPサーバ;
+    Azure_AI_Search用_MCPサーバ -->|4 処理結果返却| MCPクライアント;
+    Cosmos_DB用_MCPサーバ --> MCPクライアント;
+    Github_API用_MCPサーバ --> MCPクライアント;
+
+    subgraph "MCPサーバ"
+    Azure_AI_Search用_MCPサーバ
+    Cosmos_DB用_MCPサーバ
+    Github_API用_MCPサーバ
+    end
+```
+
+- 多岐にわたるリソース連携の例として、稟議申請の方法や入力補助、事前パラメータ入力、事前レビューなど
+
 ### ツールスペース干渉問題
 
 複数のMCPサーバーが同時に存在する場合の課題:
@@ -132,10 +156,6 @@ script/server --transport streamable-http
 - より多機能なAIアシスタント
 - ツール間のシームレスな連携
 - エコシステム全体での機能向上
-
-## 次世代のAI開発基盤
-
-MCPは単なるプロトコルではなく、AI開発の新しいパラダイムを示しています。専用ツールの時代から、相互運用可能なエコシステムの時代への移行を可能にし、より豊かで協調的なAI環境の実現を目指しています。
 
 ---
 
