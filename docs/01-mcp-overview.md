@@ -159,7 +159,7 @@ graph TD;
 
 ---
 
-次の章では、このmycalendarMCPプロジェクトの具体的なアーキテクチャについて詳しく説明します。
+次の章では、このmyCalendarMCPプロジェクトの具体的なアーキテクチャについて詳しく説明します。
 
 [README](./README.md)
-Next: [02 mycalendarMCP アーキテクチャ](./02-architecture.md)
+Next: [02 myCalendarMCP アーキテクチャ](./02-architecture.md)

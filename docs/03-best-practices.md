@@ -419,6 +419,6 @@ async def get_events_legacy(...):
 
 次の章では、開発・運用時によく遭遇する問題とその解決方法について説明します。
 
-Prev: [02 mycalendarMCP アーキテクチャ](./02-architecture.md)
+Prev: [02 myCalendarMCP アーキテクチャ](./02-architecture.md)
 [README](./README.md)
 Next: [04 トラブルシューティングガイド](./04-troubleshooting.md)

@@ -22,7 +22,7 @@
 
 ## 概要
 
-mycalendarMCPは2つの異なる呼び出し方法をサポートしています：
+myCalendarMCPは2つの異なる呼び出し方法をサポートしています：
 
 1. **直接呼び出し（script/query）**: サーバー内部のメソッドを直接実行
 2. **MCPクライアント経由**: 標準MCPプロトコルを通じたツール呼び出し
@@ -893,7 +893,7 @@ script/queryを使用することで、MCPにおけるサーバー・クライ�
 **script/queryの制限（単一システム）:**
 ```bash
 # 固定的実装 - 他システムとの統合困難
-./script/query "今日の予定"  # mycalendarMCPのみ
+./script/query "今日の予定"  # myCalendarMCPのみ
 ```
 
 **MCPクライアントの拡張性（エコシステム）:**

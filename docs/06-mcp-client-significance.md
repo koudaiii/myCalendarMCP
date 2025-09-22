@@ -460,7 +460,7 @@ const CalendarComponent = () => {
 version: '3.8'
 services:
   calendar-mcp-server:
-    build: ./mycalendarMCP
+    build: ./myCalendarMCP
     command: ["./script/server", "--transport", "sse"]
     ports:
       - "3000:3000"

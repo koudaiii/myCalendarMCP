@@ -11,7 +11,7 @@
   - [1. LLMがツールを直接実行できない技術的理由](#1-llmがツールを直接実行できない技術的理由)
   - [2. 責任分離の設計思想](#2-責任分離の設計思想)
 - [実世界での動作例](#実世界での動作例)
-  - [1. Claude Desktop + mycalendarMCP の詳細フロー](#1-claude-desktop--mycalendarmcp-の詳細フロー)
+  - [1. Claude Desktop + myCalendarMCP の詳細フロー](#1-claude-desktop--myCalendarMCP-の詳細フロー)
   - [2. なぜLLMとMCPクライアントの複雑な統合が必要か](#2-なぜllmとmcpクライアントの複雑な統合が必要か)
   - [3. 処理時間と価値の比較](#3-処理時間と価値の比較)
 - [開発者への実装ガイダンス](#開発者への実装ガイダンス)
@@ -262,9 +262,9 @@ services:
 
 ## 実世界での動作例
 
-### 1. Claude Desktop + mycalendarMCP の詳細フロー
+### 1. Claude Desktop + myCalendarMCP の詳細フロー
 
-実際のClaude DesktopとmycalendarMCPの連携は、LLMの推論、MCPクライアントの実行、サーバーの処理が段階的に組み合わされた複雑なプロセスです。
+実際のClaude DesktopとmyCalendarMCPの連携は、LLMの推論、MCPクライアントの実行、サーバーの処理が段階的に組み合わされた複雑なプロセスです。
 
 #### 完全な処理フロー
 
@@ -273,7 +273,7 @@ sequenceDiagram
     participant User as ユーザー
     participant Claude as Claude (LLM)
     participant Desktop as Claude Desktop<br/>(MCPクライアント)
-    participant MCP as mycalendarMCP<br/>サーバー
+    participant MCP as myCalendarMCP<br/>サーバー
     participant EventKit as EventKit
 
     User->>Claude: "来週の重要な会議の準備状況を教えて"
