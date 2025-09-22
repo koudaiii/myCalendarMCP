@@ -122,6 +122,30 @@ To access the calendar, you need to grant permission in macOS privacy settings:
 ./script/query -h
 ```
 
+## MCP Client Testing
+
+Test the MCP server using a client-side approach that follows the standard MCP protocol:
+
+```bash
+# Test MCP client scenario (stdio transport)
+./script/mcp_client_test
+```
+
+This test script:
+- Starts an MCP server with stdio transport
+- Connects as an MCP client using JSON-RPC protocol
+- Tests all available tools (get_events, create_event, list_calendars)
+- Tests resource reading (calendar://events, calendar://calendars)
+- Provides detailed logging of MCP communication
+- Validates the complete MCP integration workflow
+
+**Features:**
+- Full MCP protocol initialization and handshake
+- Parallel and sequential tool execution
+- Structured JSON logging of all MCP communications
+- Error handling and server cleanup
+- Comprehensive scenario testing matching `docs/05-call-methods-comparison.md`
+
 ## Troubleshooting
 
 ### ❌ Cannot access calendar

@@ -66,6 +66,12 @@ events = await server._get_events(
 ### 2. MCPクライアント経由の呼び出し
 
 #### 実行方法
+
+```bash
+# 実際のMCPクライアントテスト（推奨）
+./script/mcp_client_test
+```
+
 ```bash
 # MCPサーバー起動
 ./script/server --transport stdio
@@ -85,6 +91,8 @@ events = await server._get_events(
   }
 }
 ```
+
+> **実証テスト**: `script/mcp_client_test` はこのセクションで説明するMCPクライアント経由の呼び出しシナリオを実際に実行する包括的なテストスクリプトです。理論的な説明だけでなく、実動する実装を確認できます。
 
 #### 内部動作
 ```python
@@ -199,6 +207,8 @@ flowchart TD
 ### LLM+MCPクライアント の高度なデータフロー
 
 LLM統合MCPクライアントは、script/queryの制約を克服し、動的で知的な処理を実現します。
+
+> **実装検証**: 以下で説明する理論的なLLM+MCPクライアント統合は、`script/mcp_client_test` で実際の基盤技術を検証できます。このテストスクリプトは、LLMが将来利用するMCPクライアント・サーバー通信の基盤部分を実証しています。
 
 #### 完全なLLM統合フロー
 
@@ -318,6 +328,80 @@ flowchart TD
     style L fill:#f8cecc
 ```
 
+#### script/mcp_client_test による基盤検証
+
+`script/mcp_client_test` は、上記のLLM+MCPクライアント統合アーキテクチャの基盤となるMCPプロトコル通信を実際に検証する重要なテストツールです。
+
+**LLM統合への橋渡し機能:**
+
+```mermaid
+graph TB
+    subgraph "LLM統合の実装段階"
+        A[script/mcp_client_test<br/>基盤プロトコル検証] --> B[MCPクライアントライブラリ<br/>実装・統合]
+        B --> C[LLMエンジン統合<br/>意図理解・戦略策定]
+        C --> D[完全な知的アシスタント<br/>動的問い合わせ・学習]
+
+        style A fill:#e1f5fe
+        style B fill:#f3e5f5
+        style C fill:#fff3e0
+        style D fill:#e8f5e8
+    end
+```
+
+**検証範囲の対応関係:**
+
+| LLM統合フロー要素 | script/mcp_client_test での検証 | 将来の拡張ポイント |
+|------------------|------------------------------|-------------------|
+| **ツール発見** | `client.list_tools()` 実装済み | LLMによる能力分析・選択 |
+| **並列実行** | カレンダー一覧・イベント取得の並列テスト | LLMによる並列戦略最適化 |
+| **リソースアクセス** | `calendar://events` 読み取り検証 | 動的リソース選択・組み合わせ |
+| **エラーハンドリング** | プロトコルレベル・接続エラー処理 | LLMによる知的エラー回復 |
+| **状態管理** | MCP初期化・クリーンアップ | セッション管理・文脈保持 |
+
+**実装の段階的発展:**
+
+```mermaid
+sequenceDiagram
+    participant Test as script/mcp_client_test<br/>(現在)
+    participant Client as MCPクライアント<br/>(基盤)
+    participant LLM as LLMエンジン<br/>(将来)
+    participant User as ユーザー<br/>(最終目標)
+
+    rect rgb(240, 248, 255)
+        note over Test, Client: Phase 1: プロトコル基盤 (完了)
+        Test->>Client: JSON-RPC通信検証
+        Test->>Client: ツール・リソース呼び出し
+        Test->>Client: エラーハンドリング確認
+        Client-->>Test: 構造化データ応答
+    end
+
+    rect rgb(255, 248, 240)
+        note over Client, LLM: Phase 2: LLM統合 (将来)
+        LLM->>Client: 意図解析に基づくツール選択
+        Client->>Client: 検証済みプロトコルで実行
+        Client-->>LLM: JSON応答データ
+        LLM->>LLM: 結果分析・戦略調整
+    end
+
+    rect rgb(248, 255, 248)
+        note over LLM, User: Phase 3: 知的アシスタント (理想)
+        User->>LLM: 自然言語要求
+        LLM->>Client: 動的問い合わせ戦略
+        Client-->>LLM: 段階的データ収集
+        LLM-->>User: パーソナライズ応答
+    end
+```
+
+**script/mcp_client_test の戦略的価値:**
+
+1. **プロトコル準拠性の保証**: 標準MCPプロトコルへの完全準拠を検証
+2. **基盤安定性の確立**: LLM統合前に通信レイヤーの安定性を確保
+3. **性能ベースライン**: 基本的なツール呼び出し性能を測定・最適化
+4. **エラーパターンの特定**: LLMが対処すべきエラー条件を事前に把握
+5. **拡張ポイントの明確化**: LLMが追加すべき機能（意図理解、戦略策定等）を特定
+
+このように、`script/mcp_client_test` は単なるテストツールではなく、LLM統合アーキテクチャへの確実な基盤を提供する重要なコンポーネントです。
+
 ## 実際の出力比較
 
 ### script/query の出力例
@@ -348,6 +432,7 @@ flowchart TD
 
 ### MCPクライアントの出力例
 
+**基本的なJSON-RPC応答例:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -362,6 +447,45 @@ flowchart TD
   }
 }
 ```
+
+**script/mcp_client_test の詳細出力例:**
+```
+🚀 MCP クライアント テストスクリプトを開始
+docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し のシナリオ
+
+📋 Step 1: カレンダーアクセス許可を確認
+✅ EventKit フレームワークが利用可能です
+✅ カレンダーアクセス許可が確認されました
+
+📋 Step 5: 利用可能なツール一覧を取得
+📤 [OUTGOING] MCP REQUEST: {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
+📥 [INCOMING] MCP RESPONSE: {
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "tools": [
+      {
+        "name": "get_macos_calendar_events",
+        "description": "macOSカレンダーからイベントを取得...",
+        "inputSchema": {...}
+      }
+    ]
+  }
+}
+✅ 3 個のツールが利用可能です
+
+📋 Step 7: イベント一覧を取得（今日から1週間）
+⚡ ツール 'get_macos_calendar_events' を呼び出し中...
+📤 [OUTGOING] MCP REQUEST: {"jsonrpc": "2.0", "method": "tools/call", "id": 3, "params": {"name": "get_macos_calendar_events", "arguments": {"start_date": "2024-09-22", "end_date": "2024-09-29"}}}
+📥 [INCOMING] MCP RESPONSE: {上記JSON形式のデータ}
+✅ イベント取得成功
+📅 2 件のイベントが見つかりました
+
+🎉 MCPクライアント経由の呼び出しシナリオが完了しました
+✅ テストが正常に完了しました
+```
+
+> **注**: `script/mcp_client_test` は、基本的なJSON-RPC応答に加えて、通信プロセス全体の詳細なログを提供し、MCPプロトコルの動作を可視化します。
 
 ## ログ出力の違い
 
@@ -689,8 +813,11 @@ class ContextualCalendarAgent:
 # 機能検証: script/query による迅速な確認
 ./script/query "今日のイベント"
 
-# 統合テスト: MCPクライアント経由の詳細テスト
-pytest test_mcp_integration.py
+# MCPプロトコル検証: クライアント・サーバー統合テスト
+./script/mcp_client_test
+
+# 単体テスト: MCPツール内部ロジック検証
+./script/test
 ```
 
 #### 本番運用
@@ -708,7 +835,8 @@ health_check = await mcp_server.get_status()
 #### フェーズ1: 基盤構築
 - script/query による機能開発と検証
 - MCPサーバーの安定化
-- 基本的なMCPクライアント実装
+- script/mcp_client_test による基盤プロトコル検証
+- 基本的なMCPクライアント実装パターンの確立
 
 #### フェーズ2: 知的機能追加
 - LLMとの統合開発

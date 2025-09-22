@@ -85,6 +85,123 @@ sequenceDiagram
 
 ## 実際のMCPクライアント実装例
 
+### 0. script/mcp_client_test による基盤実証
+
+`script/mcp_client_test` は、LLMとMCPクライアントの正確な関係を実装レベルで実証するテストスクリプトです。このスクリプトは、LLMが推論のみを担当し、実際のMCPツール実行は独立したクライアントが行うというアーキテクチャを具体的に示しています。
+
+#### MCPクライアント実装の核心
+
+```python
+# script/mcp_client_test の核心実装
+class MCPClient:
+    """LLMとは独立したMCPプロトコル実行層"""
+
+    def __init__(self, server_process):
+        self.server_process = server_process
+        self.request_id = 0
+
+    async def send_request(self, method: str, params: dict = None) -> dict:
+        """LLMの指示を受けてMCPプロトコルを実行"""
+        # LLMの推論結果（ツール呼び出し指示）を受信
+        request = {
+            "jsonrpc": "2.0",
+            "id": self.request_id,
+            "method": method,
+            "params": params or {}
+        }
+
+        # 実際のMCPサーバー通信（LLMは関与しない）
+        self.server_process.stdin.write(
+            json.dumps(request).encode() + b'\n'
+        )
+        await self.server_process.stdin.drain()
+
+        # レスポンスを受信してLLMに返却
+        response_line = await self.server_process.stdout.readline()
+        return json.loads(response_line.decode().strip())
+
+    async def call_tool(self, tool_name: str, arguments: dict) -> dict:
+        """ツール実行の実際の処理層"""
+        return await self.send_request("tools/call", {
+            "name": tool_name,
+            "arguments": arguments
+        })
+```
+
+#### LLM推論とMCPクライアント実行の分離実証
+
+```python
+# LLMの推論フェーズ（シミュレーション）
+async def simulate_llm_reasoning():
+    """LLMの意図理解と戦略策定をシミュレート"""
+    user_intent = "今日のカレンダーイベントを確認したい"
+
+    # LLMの推論プロセス（実際のLLM APIを使わずシミュレート）
+    reasoning_result = {
+        "understood_intent": "ユーザーは今日の予定を知りたがっている",
+        "selected_tool": "get_macos_calendar_events",
+        "parameters": {
+            "start_date": datetime.now().strftime("%Y-%m-%d"),
+            "end_date": datetime.now().strftime("%Y-%m-%d")
+        },
+        "execution_strategy": "single_call"
+    }
+
+    return reasoning_result
+
+# MCPクライアントの実行フェーズ
+async def execute_mcp_tools(client: MCPClient, reasoning: dict):
+    """LLMの推論結果を受けてMCPツールを実行"""
+    logger.info("[LLM推論完了] MCPクライアントが実行を開始")
+
+    # LLMとは独立したMCPプロトコル実行
+    result = await client.call_tool(
+        reasoning["selected_tool"],
+        reasoning["parameters"]
+    )
+
+    logger.info("[MCPクライアント実行完了] 結果をLLMに返却")
+    return result
+```
+
+#### 9ステップ検証による関係実証
+
+`script/mcp_client_test` の9ステップ検証は、LLMとMCPクライアントの正確な関係を段階的に実証します：
+
+**Phase 1-3: LLM推論層の検証**
+- Step 1: ツール発見（LLMの利用可能ツール認識）
+- Step 2: ツール実行（LLMの指示からMCPクライアントの実行）
+- Step 3: リソース一覧（LLMのデータソース認識）
+
+**Phase 4-6: MCPクライアント実行層の検証**
+- Step 4-6: 各ツールの実際の実行（LLMから独立した処理）
+
+**Phase 7-9: 統合検証**
+- Step 7-9: リソース読み取り（LLMとMCPクライアントの協調）
+
+```python
+# 実際の検証出力例
+async def demonstrate_separation():
+    """LLMとMCPクライアントの分離を実証"""
+
+    print("=== LLM推論フェーズ ===")
+    reasoning = await simulate_llm_reasoning()
+    print(f"LLM決定: {reasoning['selected_tool']}")
+
+    print("\n=== MCPクライアント実行フェーズ ===")
+    print("LLMは待機状態 - MCPクライアントが実行中...")
+
+    result = await mcp_client.call_tool(
+        reasoning["selected_tool"],
+        reasoning["parameters"]
+    )
+
+    print("\n=== LLM応答生成フェーズ ===")
+    print("MCPクライアント結果を受けてLLMが応答生成...")
+
+    # この実証により、LLMとMCPクライアントの明確な分離が確認される
+```
+
 ### 1. Claude Desktop での実際の動作
 
 ```typescript
@@ -126,7 +243,71 @@ class ClaudeDesktopMCPClient {
 
 ### 2. カスタムMCPクライアントの実装
 
+#### script/mcp_client_test による実装パターンの実証
+
+`script/mcp_client_test` は、カスタムMCPクライアント実装の実用的なテンプレートを提供しています。このスクリプトで実証されたパターンを基に、実際のAIアシスタントを構築できます。
+
 ```python
+# script/mcp_client_test のMCPServerManagerクラスを参考にした実装
+class ProductionMCPClient:
+    """本番環境用MCPクライアント実装"""
+
+    def __init__(self, server_path: str):
+        self.server_path = server_path
+        self.server_process = None
+        self.client = None
+
+    async def start_server(self) -> bool:
+        """script/mcp_client_test のサーバー起動パターンを採用"""
+        try:
+            # stdio transportでMCPサーバーを起動
+            self.server_process = await asyncio.create_subprocess_exec(
+                "uv", "run", "python", "-m", "calendar_mcp",
+                "--transport", "stdio",
+                cwd=self.server_path,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            # MCPクライアント初期化
+            self.client = MCPClient(self.server_process)
+
+            # 初期化とハンドシェイク
+            await self.client.initialize()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"サーバー起動失敗: {e}")
+            return False
+
+    async def execute_llm_tool_request(self, tool_request: dict) -> dict:
+        """LLMからのツール実行要求を処理"""
+        try:
+            # LLMの推論結果を受けてMCPツール実行
+            result = await self.client.call_tool(
+                tool_request["name"],
+                tool_request["arguments"]
+            )
+
+            return {
+                "success": True,
+                "content": result["result"]["content"],
+                "metadata": {
+                    "tool": tool_request["name"],
+                    "execution_time": result.get("execution_time"),
+                    "server_info": result.get("server_info")
+                }
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "fallback_message": "MCPツール実行中にエラーが発生しました"
+            }
+
 # カスタムAIアシスタントでのMCP統合例
 class CustomAIAssistant:
     def __init__(self):

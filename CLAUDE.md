@@ -10,6 +10,7 @@
   - [7. MCPエコシステムにおける設計原則とベストプラクティス](#7-mcpエコシステムにおける設計原則とベストプラクティス)
   - [8. パフォーマンス設計指針とEventKit技術仕様](#8-パフォーマンス設計指針とeventkit技術仕様)
   - [9. FastMCPツールの適切な定義とベストプラクティス](#9-fastmcpツールの適切な定義とベストプラクティス)
+  - [10. MCPクライアントテストスクリプト（script/mcp_client_test）](#10-mcpクライアントテストスクリプトscriptmcp_client_test)
 
 ## 問題と解決策の記録
 
@@ -64,6 +65,9 @@ script/server
 script/server --transport sse
 script/server --transport stdio
 script/server --transport streamable-http
+
+# MCPクライアント経由のテスト
+script/mcp_client_test
 ```
 
 ### 4. 注意事項
@@ -369,3 +373,174 @@ async def get_macos_calendar_events(param1: str, param2: str = None) -> str:
 - ruff formatによる自動整形で88文字制限を遵守
 - pytest による動作検証（21テストケース全通過）
 - MCPクライアントでの実際の使用テストを実施
+
+### 10. MCPクライアントテストスクリプト（script/mcp_client_test）
+
+**目的:**
+- 実際のMCPクライアント実装によるMCPサーバーの動作検証
+- `docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し` のシナリオ実証
+- JSON-RPC プロトコルレベルでの詳細テスト
+
+**実装概要:**
+- ファイルパス: `script/mcp_client_test`
+- 言語: Bash + 埋め込みPython（uv run python3 - <<'EOF'）
+- 主要クラス: `MCPServerManager`, `MCPClient`
+- 対象シナリオ: MCPクライアント経由の包括的ツール・リソーステスト
+
+**テストシナリオ（9段階）:**
+```bash
+# 実行方法
+script/mcp_client_test
+
+# 実行される9段階のテストシナリオ:
+# 1. カレンダーアクセス許可確認
+# 2. MCPサーバー起動（stdio transport）
+# 3. MCPクライアント初期化
+# 4. MCPプロトコル初期化
+# 5. 利用可能ツール一覧取得
+# 6. カレンダー一覧取得（list_macos_calendars）
+# 7. イベント一覧取得（get_macos_calendar_events）
+# 8. リソース一覧取得
+# 9. リソース読み取り（calendar://events）
+```
+
+**技術的特徴:**
+
+**MCPプロトコル実装:**
+- 標準JSON-RPC 2.0によるMCP通信
+- `initialize` → `notifications/initialized` の正式ハンドシェイク
+- プロトコルバージョン: 2024-11-05
+- クライアント情報: name="mcp-client-test", version="1.0.0"
+
+**サーバー管理機能:**
+```python
+class MCPServerManager:
+    async def start_server(self, transport="stdio"):
+        # script/server --transport stdio でサーバー起動
+        # subprocess.Popen で stdin/stdout/stderr 管理
+        # 2秒待機でサーバー起動確認
+
+    def stop_server(self):
+        # 適切な terminate() → wait() → kill() 処理
+        # タイムアウト設定によるリソース保護
+```
+
+**MCPクライアント実装:**
+```python
+class MCPClient:
+    def send_request(self, method, params=None):
+        # JSON-RPC リクエスト生成・送信
+        # レスポンス解析と構造化ログ出力
+        # エラーハンドリングと復旧
+
+    def send_notification(self, method, params=None):
+        # レスポンス不要なノーティフィケーション送信
+        # initialize 完了後の notifications/initialized 等
+```
+
+**包括的ログ出力:**
+```
+📤 [OUTGOING] MCP REQUEST: {"jsonrpc": "2.0", "method": "tools/call", "id": 3, "params": {"name": "get_macos_calendar_events", "arguments": {"start_date": "2024-09-22", "end_date": "2024-09-29"}}}
+
+📥 [INCOMING] MCP RESPONSE: {
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"title\":\"Sample Event\",\"start_date\":\"2024-09-22 09:00:00\",...}]"
+      }
+    ]
+  }
+}
+```
+
+**エラーハンドリング機能:**
+- EventKit利用可能性の事前確認
+- カレンダーアクセス許可の検証
+- MCPサーバー起動失敗の検出
+- JSON-RPC通信エラーの適切な処理
+- シグナルハンドリング（SIGINT、SIGTERM）
+
+**pytest テストとの関係性:**
+- `tests/test_tools.py`: MCPツール内部実装のユニットテスト
+- `script/mcp_client_test`: 実際のMCPクライアント統合テスト
+- 相互補完により包括的テストカバレッジを実現
+
+**docs/05-call-methods-comparison.md との連携:**
+- Section 2「MCPクライアント経由の呼び出し」の実証実装
+- script/query（直接呼び出し）との動作・ログ出力の比較材料
+- LLM+MCPクライアント統合アーキテクチャの基礎検証
+
+**実行前提条件:**
+```bash
+# 1. EventKit フレームワークの利用可能性
+# 2. macOS カレンダーアクセス許可
+# 3. uv パッケージマネージャーのインストール
+# 4. プロジェクト依存関係の解決（uv による）
+```
+
+**デバッグ用出力例:**
+```
+🚀 MCP クライアント テストスクリプトを開始
+docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し のシナリオ
+
+📋 Step 1: カレンダーアクセス許可を確認
+✅ EventKit フレームワークが利用可能です
+✅ カレンダーアクセス許可が確認されました
+
+📋 Step 2: MCPサーバーを起動
+🚀 MCPサーバーを起動中... (transport: stdio)
+実行コマンド: /Users/.../script/server --transport stdio
+✅ MCPサーバーが起動しました
+
+📋 Step 3: MCPクライアントを初期化
+📋 Step 4: MCPプロトコルを初期化
+🔧 MCPサーバーを初期化中...
+🔧 初期化完了通知を送信中...
+✅ MCPサーバーの初期化が完了しました
+
+📋 Step 5: 利用可能なツール一覧を取得
+✅ 3 個のツールが利用可能です:
+   - get_macos_calendar_events: macOSカレンダーからイベントを取得
+   - create_macos_calendar_event: macOSカレンダーに新しいイベントを作成
+   - list_macos_calendars: macOSで利用可能なカレンダー一覧を取得
+
+📋 Step 6: カレンダー一覧を取得
+⚡ ツール 'list_macos_calendars' を呼び出し中...
+✅ カレンダー一覧取得成功
+
+📋 Step 7: イベント一覧を取得（今日から1週間）
+⚡ ツール 'get_macos_calendar_events' を呼び出し中...
+✅ イベント取得成功
+📅 2 件のイベントが見つかりました
+   1. Sample Meeting
+      📅 2024-09-22 09:00:00 - 2024-09-22 10:00:00
+      📋 カレンダー: Work
+
+📋 Step 8: 利用可能なリソース一覧を取得
+✅ 2 個のリソースが利用可能です:
+   - calendar://events: Calendar events resource
+   - calendar://calendars: Calendar list resource
+
+📋 Step 9: calendar://events リソースを読み取り
+📖 リソース 'calendar://events' を読み取り中...
+✅ calendar://events リソース読み取り成功
+
+🎉 MCPクライアント経由の呼び出しシナリオが完了しました
+✅ テストが正常に完了しました
+```
+
+**主要な検証項目:**
+1. **プロトコル準拠性**: 標準MCP仕様への完全準拠
+2. **ツール呼び出し**: 全MCPツールの動作確認
+3. **リソースアクセス**: MCPリソースの読み取り検証
+4. **エラー処理**: 異常系での適切な処理とクリーンアップ
+5. **ログ品質**: 開発・デバッグに有用な構造化ログ出力
+
+**運用での活用方法:**
+- CI/CD パイプラインでの回帰テスト
+- MCPサーバー変更後の動作確認
+- 新しいMCPクライアント実装時の参考実装
+- トラブルシューティング時の通信ログ確認

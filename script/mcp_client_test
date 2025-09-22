@@ -1,0 +1,393 @@
+#!/bin/bash
+
+# MCPクライアント経由でカレンダーツールを呼び出すテストスクリプト
+# docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し のシナリオに対応
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# プロジェクトルートに移動してuvを使ってPythonを実行
+cd "$PROJECT_ROOT"
+
+# Pythonの実装部分を実行
+exec uv run python3 - <<'EOF'
+import asyncio
+import json
+import logging
+import os
+import signal
+import subprocess
+import sys
+import time
+from datetime import datetime, timedelta
+
+# ロガーの設定
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+try:
+    import EventKit
+    EVENTKIT_AVAILABLE = True
+    logger.info("✅ EventKit フレームワークが利用可能です")
+except ImportError:
+    EVENTKIT_AVAILABLE = False
+    logger.error("❌ EventKit フレームワークが見つかりません")
+    logger.error("   pyobjc-framework-EventKit をインストールしてください")
+
+
+def check_calendar_permission():
+    """カレンダーアクセス許可を確認"""
+    if not EVENTKIT_AVAILABLE:
+        return False
+
+    auth_status = EventKit.EKEventStore.authorizationStatusForEntityType_(
+        EventKit.EKEntityTypeEvent
+    )
+
+    if auth_status == EventKit.EKAuthorizationStatusAuthorized:
+        logger.info("✅ カレンダーアクセス許可が確認されました")
+        return True
+    else:
+        logger.warning("❌ カレンダーアクセス許可が必要です")
+        logger.info("   まず script/request_calendar_permission.py を実行してください")
+        return False
+
+
+class MCPServerManager:
+    """MCPサーバーの起動・停止を管理"""
+
+    def __init__(self):
+        self.process = None
+        self.server_ready = False
+
+    async def start_server(self, transport="stdio"):
+        """MCPサーバーを起動"""
+        logger.info(f"🚀 MCPサーバーを起動中... (transport: {transport})")
+
+        # プロジェクトルートからscript/serverを指定
+        script_path = os.path.join(os.getcwd(), "script", "server")
+
+        if not os.path.exists(script_path):
+            raise FileNotFoundError(f"サーバースクリプトが見つかりません: {script_path}")
+
+        cmd = [script_path, "--transport", transport]
+        logger.info(f"実行コマンド: {' '.join(cmd)}")
+
+        try:
+            # stdio transport の場合、直接通信するためのプロセス起動
+            self.process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=0
+            )
+
+            # サーバーが起動するまで少し待機
+            await asyncio.sleep(2)
+
+            if self.process.poll() is None:
+                logger.info("✅ MCPサーバーが起動しました")
+                self.server_ready = True
+                return True
+            else:
+                stderr_output = self.process.stderr.read()
+                logger.error(f"❌ MCPサーバーの起動に失敗: {stderr_output}")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ MCPサーバーの起動中にエラー: {e}")
+            return False
+
+    def stop_server(self):
+        """MCPサーバーを停止"""
+        if self.process:
+            logger.info("🛑 MCPサーバーを停止中...")
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logger.warning("サーバーが応答しないため強制終了します")
+                self.process.kill()
+                self.process.wait()
+            logger.info("✅ MCPサーバーが停止しました")
+            self.server_ready = False
+
+
+class MCPClient:
+    """簡単なMCPクライアント実装"""
+
+    def __init__(self, server_process):
+        self.server_process = server_process
+        self.request_id = 1
+        self.initialized = False
+
+    def send_request(self, method, params=None):
+        """MCPリクエストを送信"""
+        request = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "id": self.request_id,
+        }
+        if params:
+            request["params"] = params
+
+        request_json = json.dumps(request)
+        logger.info(f"📤 [OUTGOING] MCP REQUEST: {request_json}")
+
+        try:
+            # リクエストを送信
+            self.server_process.stdin.write(request_json + "\n")
+            self.server_process.stdin.flush()
+
+            # レスポンスを読み取り（複数行の可能性があるため、JSONが完了するまで読む）
+            response_line = ""
+            while True:
+                line = self.server_process.stdout.readline()
+                if not line:
+                    raise Exception("サーバーからのレスポンスがありません")
+
+                line = line.strip()
+                # JSONRPCレスポンスかどうかチェック
+                if line.startswith('{"jsonrpc":'):
+                    response_line = line
+                    break
+                # 空行やログ行はスキップ
+                elif line == "" or not line.startswith("{"):
+                    continue
+
+            if not response_line:
+                raise Exception("有効なJSONRPCレスポンスが受信できませんでした")
+
+            response = json.loads(response_line)
+            logger.info(f"📥 [INCOMING] MCP RESPONSE: {json.dumps(response, ensure_ascii=False, indent=2)}")
+
+            self.request_id += 1
+            return response
+
+        except Exception as e:
+            logger.error(f"❌ MCPリクエストエラー: {e}")
+            return None
+
+    def send_notification(self, method, params=None):
+        """MCPノーティフィケーションを送信（レスポンス無し）"""
+        notification = {
+            "jsonrpc": "2.0",
+            "method": method,
+        }
+        if params:
+            notification["params"] = params
+
+        notification_json = json.dumps(notification)
+        logger.info(f"📤 [OUTGOING] MCP NOTIFICATION: {notification_json}")
+
+        try:
+            # ノーティフィケーションを送信（レスポンス無し）
+            self.server_process.stdin.write(notification_json + "\n")
+            self.server_process.stdin.flush()
+            return True
+        except Exception as e:
+            logger.error(f"❌ MCPノーティフィケーションエラー: {e}")
+            return False
+
+    def initialize(self):
+        """MCPサーバーを初期化"""
+        logger.info("🔧 MCPサーバーを初期化中...")
+        response = self.send_request("initialize", {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "roots": {"listChanged": True},
+                "sampling": {}
+            },
+            "clientInfo": {
+                "name": "mcp-client-test",
+                "version": "1.0.0"
+            }
+        })
+
+        if response and "result" in response:
+            # 初期化完了後にinitialized notificationを送信
+            logger.info("🔧 初期化完了通知を送信中...")
+            if self.send_notification("notifications/initialized"):
+                self.initialized = True
+                logger.info("✅ MCPサーバーの初期化が完了しました")
+                return True
+            else:
+                logger.error("❌ 初期化完了通知の送信に失敗しました")
+                return False
+        else:
+            logger.error("❌ MCPサーバーの初期化に失敗しました")
+            return False
+
+    def list_tools(self):
+        """利用可能なツール一覧を取得"""
+        logger.info("🔍 利用可能なツール一覧を取得中...")
+        return self.send_request("tools/list", {})
+
+    def call_tool(self, tool_name, arguments):
+        """ツールを呼び出し"""
+        logger.info(f"⚡ ツール '{tool_name}' を呼び出し中...")
+        return self.send_request("tools/call", {
+            "name": tool_name,
+            "arguments": arguments
+        })
+
+    def list_resources(self):
+        """利用可能なリソース一覧を取得"""
+        logger.info("📋 利用可能なリソース一覧を取得中...")
+        return self.send_request("resources/list", {})
+
+    def read_resource(self, uri):
+        """リソースを読み取り"""
+        logger.info(f"📖 リソース '{uri}' を読み取り中...")
+        return self.send_request("resources/read", {
+            "uri": uri
+        })
+
+
+async def run_mcp_client_scenario():
+    """MCPクライアント経由の呼び出しシナリオを実行"""
+
+    logger.info("🎯 MCPクライアント経由の呼び出しシナリオを開始")
+    logger.info("=" * 60)
+
+    # 1. カレンダー許可確認
+    logger.info("📋 Step 1: カレンダーアクセス許可を確認")
+    if not check_calendar_permission():
+        logger.error("❌ カレンダーアクセス許可が必要です。終了します。")
+        return False
+
+    # 2. MCPサーバー起動
+    logger.info("📋 Step 2: MCPサーバーを起動")
+    server_manager = MCPServerManager()
+
+    try:
+        if not await server_manager.start_server("stdio"):
+            logger.error("❌ MCPサーバーの起動に失敗しました")
+            return False
+
+        # 3. MCPクライアント作成
+        logger.info("📋 Step 3: MCPクライアントを初期化")
+        client = MCPClient(server_manager.process)
+
+        # 4. MCPプロトコル初期化
+        logger.info("📋 Step 4: MCPプロトコルを初期化")
+        if not client.initialize():
+            logger.error("❌ MCPプロトコルの初期化に失敗しました")
+            return False
+
+        # 5. ツール一覧取得
+        logger.info("📋 Step 5: 利用可能なツール一覧を取得")
+        tools_response = client.list_tools()
+        if tools_response and "result" in tools_response:
+            tools = tools_response["result"].get("tools", [])
+            logger.info(f"✅ {len(tools)} 個のツールが利用可能です:")
+            for tool in tools:
+                logger.info(f"   - {tool.get('name', 'N/A')}: {tool.get('description', 'N/A')}")
+
+        # 6. カレンダー一覧取得
+        logger.info("📋 Step 6: カレンダー一覧を取得")
+        calendars_response = client.call_tool("list_macos_calendars", {})
+        if calendars_response and "result" in calendars_response:
+            logger.info("✅ カレンダー一覧取得成功")
+
+        # 7. イベント取得（今日から1週間）
+        logger.info("📋 Step 7: イベント一覧を取得（今日から1週間）")
+        start_date = datetime.now().strftime("%Y-%m-%d")
+        end_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+        events_response = client.call_tool("get_macos_calendar_events", {
+            "start_date": start_date,
+            "end_date": end_date
+        })
+
+        if events_response and "result" in events_response:
+            logger.info("✅ イベント取得成功")
+
+            # レスポンスからイベントデータを解析
+            content = events_response["result"].get("content", [])
+            if content and len(content) > 0:
+                events_text = content[0].get("text", "")
+                try:
+                    events = json.loads(events_text)
+                    logger.info(f"📅 {len(events)} 件のイベントが見つかりました")
+
+                    # イベントを表示
+                    for i, event in enumerate(events, 1):
+                        logger.info(f"   {i}. {event.get('title', 'N/A')}")
+                        logger.info(f"      📅 {event.get('start_date', 'N/A')} - {event.get('end_date', 'N/A')}")
+                        logger.info(f"      📋 カレンダー: {event.get('calendar', 'N/A')}")
+                        if event.get('notes'):
+                            logger.info(f"      📝 メモ: {event.get('notes')}")
+                        logger.info("")
+
+                except json.JSONDecodeError:
+                    logger.warning("⚠️ イベントデータの解析に失敗しました")
+
+        # 8. リソース一覧取得
+        logger.info("📋 Step 8: 利用可能なリソース一覧を取得")
+        resources_response = client.list_resources()
+        if resources_response and "result" in resources_response:
+            resources = resources_response["result"].get("resources", [])
+            logger.info(f"✅ {len(resources)} 個のリソースが利用可能です:")
+            for resource in resources:
+                logger.info(f"   - {resource.get('uri', 'N/A')}: {resource.get('name', 'N/A')}")
+
+        # 9. リソース読み取り（calendar://events）
+        logger.info("📋 Step 9: calendar://events リソースを読み取り")
+        events_resource = client.read_resource("calendar://events")
+        if events_resource and "result" in events_resource:
+            logger.info("✅ calendar://events リソース読み取り成功")
+
+        logger.info("=" * 60)
+        logger.info("🎉 MCPクライアント経由の呼び出しシナリオが完了しました")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ シナリオ実行中にエラー: {e}")
+        return False
+
+    finally:
+        # サーバーを停止
+        server_manager.stop_server()
+
+
+def main():
+    """メイン実行関数"""
+    logger.info("🚀 MCP クライアント テストスクリプトを開始")
+    logger.info("docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し のシナリオ")
+    logger.info("")
+
+    # シグナルハンドラー設定
+    def signal_handler(signum, frame):
+        logger.info("\n⚠️ 中断シグナルを受信しました。終了中...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    try:
+        # 非同期でシナリオを実行
+        success = asyncio.run(run_mcp_client_scenario())
+
+        if success:
+            logger.info("✅ テストが正常に完了しました")
+            sys.exit(0)
+        else:
+            logger.error("❌ テストが失敗しました")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        logger.info("\n⚠️ ユーザーによって中断されました")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ 予期しないエラー: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+EOF

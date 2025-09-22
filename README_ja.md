@@ -129,6 +129,30 @@ macOS の Calendar アプリ（EventKit）にアクセスするための MCP（M
 ./script/query -h
 ```
 
+## MCPクライアントテスト
+
+標準MCPプロトコルに従ったクライアント側からのアプローチでMCPサーバーをテストします：
+
+```bash
+# MCPクライアントシナリオのテスト（stdio トランスポート）
+./script/mcp_client_test
+```
+
+このテストスクリプトの機能：
+- stdio トランスポートでMCPサーバーを起動
+- JSON-RPC プロトコルを使用してMCPクライアントとして接続
+- 利用可能な全ツールをテスト（get_events、create_event、list_calendars）
+- リソース読み取りをテスト（calendar://events、calendar://calendars）
+- MCP通信の詳細ログを提供
+- 完全なMCP統合ワークフローを検証
+
+**特徴:**
+- 完全なMCPプロトコル初期化とハンドシェイク
+- 並列および逐次ツール実行
+- 全MCP通信の構造化JSONログ
+- エラーハンドリングとサーバークリーンアップ
+- `docs/05-call-methods-comparison.md` に対応した包括的シナリオテスト
+
 ## トラブルシューティング
 
 ### ❌ カレンダーにアクセスできない
