@@ -53,6 +53,27 @@ def log_json_data(data_type: str, data: Any, direction: str = ""):
         json_logger.error(f"Failed to log {data_type}: {e}")
 
 
+def log_structured_response(operation: str, raw_data: Any, formatted_data: Any = None):
+    """構造化されたレスポンスをサーバー側とクライアント側の両方の形式でログ出力する"""
+    try:
+        # SERVER SIDE: Raw Response Structure
+        json_logger.info(f"🔍 SERVER SIDE ({operation}): Raw Response Structure:")
+        if isinstance(raw_data, (dict, list)):
+            json_logger.info(safe_json_dumps(raw_data))
+        else:
+            json_logger.info(str(raw_data))
+
+        # CLIENT SIDE: Formatted Response Structure (if provided)
+        if formatted_data is not None:
+            json_logger.info(f"🔍 CLIENT SIDE ({operation}): Formatted Response Structure:")
+            if isinstance(formatted_data, (dict, list)):
+                json_logger.info(safe_json_dumps(formatted_data))
+            else:
+                json_logger.info(str(formatted_data))
+    except Exception as e:
+        json_logger.error(f"Failed to log structured response for {operation}: {e}")
+
+
 try:
     import EventKit
     import Foundation
@@ -104,6 +125,24 @@ class CalendarMCPServer:
             """List available calendar events."""
             log_json_data("RESOURCE REQUEST", {"uri": "calendar://events"}, "INCOMING")
             events = await self._get_events()
+
+            # 構造化ログ出力
+            formatted_events = []
+            if isinstance(events, list):
+                for event in events:
+                    if isinstance(event, dict) and "error" not in event:
+                        formatted_events.append({
+                            "title": event.get("title", "N/A"),
+                            "start_date": event.get("start_date", event.get("start", "N/A")),
+                            "end_date": event.get("end_date", event.get("end", "N/A")),
+                            "calendar": event.get("calendar", "N/A"),
+                            "notes": event.get("notes", ""),
+                            "allDay": event.get("allDay", False)
+                        })
+                    else:
+                        formatted_events.append(event)
+
+            log_structured_response("calendar://events", events, formatted_events)
             log_json_data("RESOURCE RESPONSE", events, "OUTGOING")
             return safe_json_dumps(events)
 
@@ -114,6 +153,22 @@ class CalendarMCPServer:
                 "RESOURCE REQUEST", {"uri": "calendar://calendars"}, "INCOMING"
             )
             calendars = await self._get_calendars()
+
+            # 構造化ログ出力
+            formatted_calendars = []
+            if isinstance(calendars, list):
+                for calendar in calendars:
+                    if isinstance(calendar, dict) and "error" not in calendar:
+                        formatted_calendars.append({
+                            "title": calendar.get("title", "N/A"),
+                            "type": calendar.get("type", "N/A"),
+                            "identifier": calendar.get("identifier", "N/A"),
+                            "allowsContentModifications": calendar.get("allowsContentModifications", False)
+                        })
+                    else:
+                        formatted_calendars.append(calendar)
+
+            log_structured_response("calendar://calendars", calendars, formatted_calendars)
             log_json_data("RESOURCE RESPONSE", calendars, "OUTGOING")
             return safe_json_dumps(calendars)
 
@@ -170,6 +225,24 @@ class CalendarMCPServer:
                 end_date=end_date,
                 calendar_name=calendar_name,
             )
+
+            # 構造化ログ出力
+            formatted_events = []
+            if isinstance(events, list):
+                for event in events:
+                    if isinstance(event, dict) and "error" not in event:
+                        formatted_events.append({
+                            "title": event.get("title", "N/A"),
+                            "start_date": event.get("start_date", event.get("start", "N/A")),
+                            "end_date": event.get("end_date", event.get("end", "N/A")),
+                            "calendar": event.get("calendar", "N/A"),
+                            "notes": event.get("notes", ""),
+                            "allDay": event.get("allDay", False)
+                        })
+                    else:
+                        formatted_events.append(event)
+
+            log_structured_response("get_macos_calendar_events", events, formatted_events)
             log_json_data("TOOL RESPONSE", events, "OUTGOING")
             return safe_json_dumps(events)
 
@@ -274,6 +347,22 @@ class CalendarMCPServer:
                 "INCOMING",
             )
             calendars = await self._get_calendars()
+
+            # 構造化ログ出力
+            formatted_calendars = []
+            if isinstance(calendars, list):
+                for calendar in calendars:
+                    if isinstance(calendar, dict) and "error" not in calendar:
+                        formatted_calendars.append({
+                            "title": calendar.get("title", "N/A"),
+                            "type": calendar.get("type", "N/A"),
+                            "identifier": calendar.get("identifier", "N/A"),
+                            "allowsContentModifications": calendar.get("allowsContentModifications", False)
+                        })
+                    else:
+                        formatted_calendars.append(calendar)
+
+            log_structured_response("list_macos_calendars", calendars, formatted_calendars)
             log_json_data("TOOL RESPONSE", calendars, "OUTGOING")
             return safe_json_dumps(calendars)
 

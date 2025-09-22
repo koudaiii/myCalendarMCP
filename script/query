@@ -9,6 +9,7 @@ usage() {
     echo "  -d, --days N     N日後までのイベントを取得 (デフォルト: 7)"
     echo "  -c, --calendar   カレンダー名を指定"
     echo "  -l, --list       利用可能なカレンダー一覧を表示"
+    echo "  --verbose        詳細ログを出力"
     echo "  -h, --help       このヘルプを表示"
     echo ""
     echo "例:"
@@ -16,6 +17,7 @@ usage() {
     echo "  $0 -d 3 \"今日から3日間のイベント\""
     echo "  $0 -c \"仕事\" \"仕事カレンダーのイベント\""
     echo "  $0 -l \"カレンダー一覧を表示\""
+    echo "  $0 --verbose \"詳細ログ付きでイベント取得\""
 }
 
 # Default values
@@ -23,6 +25,7 @@ DAYS=7
 CALENDAR_NAME=""
 QUERY=""
 LIST_CALENDARS=false
+VERBOSE=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -37,6 +40,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -l|--list)
             LIST_CALENDARS=true
+            shift
+            ;;
+        --verbose)
+            VERBOSE=true
             shift
             ;;
         -h|--help)
@@ -57,6 +64,9 @@ if [[ "$LIST_CALENDARS" == false && -z "$QUERY" ]]; then
 fi
 
 echo "🗓️  macOS Calendar クエリを実行中..."
+if [[ "$VERBOSE" == true ]]; then
+    echo "📋 実行方法: script/query (直接呼び出し) - docs/05-call-methods-comparison.md#1"
+fi
 echo "📅 クエリ: $QUERY"
 
 # Check if uv is installed
@@ -77,30 +87,72 @@ echo "📍 期間: $START_DATE から $END_DATE"
 if [[ -n "$CALENDAR_NAME" ]]; then
     echo "📋 カレンダー: $CALENDAR_NAME"
 fi
+echo ""
+if [[ "$VERBOSE" == true ]]; then
+    echo "🔧 CLIENT SIDE: 直接内部メソッド呼び出し (MCPプロトコル層バイパス)"
+fi
 
 # Execute Python script
 if [[ "$LIST_CALENDARS" == true ]]; then
     # List calendars
-    uv run python -c "
+    if [[ "$VERBOSE" == true ]]; then
+        echo "📞 CLIENT SIDE: CalendarMCPServer()._get_calendars() を直接実行中..."
+    fi
+    VERBOSE_MODE=$VERBOSE uv run python -c "
 import asyncio
 import sys
+import logging
 from calendar_mcp.server import CalendarMCPServer
 
+# ロガー設定
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
+
+# Verbose モードの設定 (環境変数から取得)
+import os
+verbose = os.getenv('VERBOSE_MODE', 'false') == 'true'
+
 async def main():
+    if verbose:
+        logger.info('⚙️  SERVER SIDE: CalendarMCPServer 初期化中...')
     server = CalendarMCPServer()
 
     # Get calendars
+    if verbose:
+        logger.info('🔍 SERVER SIDE: EventKit フレームワークからカレンダーデータ取得中...')
     calendars = await server._get_calendars()
+    if verbose:
+        logger.info(f'✅ SERVER SIDE: {len(calendars) if calendars else 0} 個のカレンダーを取得完了')
 
     if not calendars:
-        print('📭 利用可能なカレンダーがありません')
+        logger.info('📭 利用可能なカレンダーがありません')
         return
 
     if isinstance(calendars, list) and len(calendars) == 1 and 'error' in calendars[0]:
-        print(f'❌ エラー: {calendars[0][\"error\"]}')
+        logger.error(f'❌ エラー: {calendars[0][\"error\"]}')
         return
 
-    print(f'\\n📋 {len(calendars)}個のカレンダーが利用可能です:\\n')
+    if verbose:
+        import json
+        logger.info(f'\\n🔍 SERVER SIDE: Raw Response Structure:')
+        logger.info(json.dumps(calendars, indent=2, ensure_ascii=False))
+        logger.info(f'\\n📊 CLIENT SIDE: 受信データをユーザー向けフォーマットに変換中...')
+
+    # CLIENT SIDE: 構造化されたレスポンスデータの作成
+    client_response = []
+    for calendar in calendars:
+        client_response.append({
+            'title': calendar.get('title', 'タイトルなし'),
+            'type': calendar.get('type', 'N/A'),
+            'identifier': calendar.get('identifier', 'N/A'),
+            'allowsContentModifications': calendar.get('allowsContentModifications', False)
+        })
+
+    if verbose:
+        logger.info(f'\\n🔍 CLIENT SIDE: Formatted Response Structure:')
+        logger.info(json.dumps(client_response, indent=2, ensure_ascii=False))
+
+    logger.info(f'📋 {len(calendars)}個のカレンダーが利用可能です:\\n')
 
     for i, calendar in enumerate(calendars, 1):
         title = calendar.get('title', 'タイトルなし')
@@ -108,42 +160,82 @@ async def main():
         identifier = calendar.get('identifier', 'N/A')
         modifiable = calendar.get('allowsContentModifications', False)
 
-        print(f'{i}. {title}')
-        print(f'   🏷️  タイプ: {calendar_type}')
-        print(f'   🆔 ID: {identifier}')
-        print(f'   ✏️  編集可能: {\"はい\" if modifiable else \"いいえ\"}')
-        print()
+        logger.info(f'{i}. {title}')
+        logger.info(f'   🏷️  タイプ: {calendar_type}')
+        logger.info(f'   🆔 ID: {identifier}')
+        logger.info(f'   ✏️  編集可能: {\"はい\" if modifiable else \"いいえ\"}')
+        logger.info('')
 
 if __name__ == '__main__':
     asyncio.run(main())
 "
 else
     # Get events
-    uv run python -c "
+    if [[ "$VERBOSE" == true ]]; then
+        echo "📞 CLIENT SIDE: CalendarMCPServer()._get_events() を直接実行中..."
+    fi
+    VERBOSE_MODE=$VERBOSE uv run python -c "
 import asyncio
 import sys
+import logging
 from datetime import datetime
 from calendar_mcp.server import CalendarMCPServer
 
+# ロガー設定
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
+
+# Verbose モードの設定 (環境変数から取得)
+import os
+verbose = os.getenv('VERBOSE_MODE', 'false') == 'true'
+
 async def main():
+    if verbose:
+        logger.info('⚙️  SERVER SIDE: CalendarMCPServer 初期化中...')
     server = CalendarMCPServer()
 
     # Get events
+    if verbose:
+        logger.info('🔍 SERVER SIDE: EventKit フレームワークからイベントデータ取得中...')
     events = await server._get_events(
         start_date='$START_DATE',
         end_date='$END_DATE',
         calendar_name='$CALENDAR_NAME' if '$CALENDAR_NAME' else None
     )
+    if verbose:
+        logger.info(f'✅ SERVER SIDE: {len(events) if events else 0} 個のイベントを取得完了')
 
     if not events:
-        print('📭 指定した期間にイベントはありません')
+        logger.info('📭 指定した期間にイベントはありません')
         return
 
     if isinstance(events, list) and len(events) == 1 and 'error' in events[0]:
-        print(f'❌ エラー: {events[0][\"error\"]}')
+        logger.error(f'❌ エラー: {events[0][\"error\"]}')
         return
 
-    print(f'\\n📋 {len(events)}件のイベントが見つかりました:\\n')
+    if verbose:
+        import json
+        logger.info(f'\\n🔍 SERVER SIDE: Raw Response Structure:')
+        logger.info(json.dumps(events, indent=2, ensure_ascii=False))
+        logger.info(f'\\n📊 CLIENT SIDE: 受信データをユーザー向けフォーマットに変換中...')
+
+    # CLIENT SIDE: 構造化されたレスポンスデータの作成
+    client_response = []
+    for event in events:
+        client_response.append({
+            'title': event.get('title', 'タイトルなし'),
+            'start_date': event.get('start_date', event.get('start', 'N/A')),
+            'end_date': event.get('end_date', event.get('end', 'N/A')),
+            'calendar': event.get('calendar', 'N/A'),
+            'notes': event.get('notes', ''),
+            'allDay': event.get('allDay', False)
+        })
+
+    if verbose:
+        logger.info(f'\\n🔍 CLIENT SIDE: Formatted Response Structure:')
+        logger.info(json.dumps(client_response, indent=2, ensure_ascii=False))
+
+    logger.info(f'📋 {len(events)}件のイベントが見つかりました:\\n')
 
     for i, event in enumerate(events, 1):
         title = event.get('title', 'タイトルなし')
@@ -152,13 +244,13 @@ async def main():
         calendar = event.get('calendar', 'N/A')
         notes = event.get('notes', '')
 
-        print(f'{i}. {title}')
-        print(f'   📅 開始: {start}')
-        print(f'   🏁 終了: {end}')
-        print(f'   📋 カレンダー: {calendar}')
+        logger.info(f'{i}. {title}')
+        logger.info(f'   📅 開始: {start}')
+        logger.info(f'   🏁 終了: {end}')
+        logger.info(f'   📋 カレンダー: {calendar}')
         if notes:
-            print(f'   📝 メモ: {notes}')
-        print()
+            logger.info(f'   📝 メモ: {notes}')
+        logger.info('')
 
 if __name__ == '__main__':
     asyncio.run(main())

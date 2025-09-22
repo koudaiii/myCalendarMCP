@@ -125,7 +125,7 @@ async def get_macos_calendar_events(
 | **型安全性** | Python型ヒントのみ | FastMCP + 型アノテーション |
 | **入力検証** | 基本的な検証 | 包括的なバリデーション |
 | **エラーハンドリング** | Pythonエラー出力 | 構造化エラーレスポンス |
-| **ログ出力** | print文 | 構造化JSONログ |
+| **ログ出力** | CLIENT/SERVER 区別ログ | 構造化JSONログ + プロトコル詳細 |
 | **レスポンス形式** | 人間向けテキスト | JSON構造化データ |
 | **パフォーマンス** | 高速（直接実行） | 中程度（プロトコルオーバーヘッド） |
 | **拡張性** | 低い（script固有） | 高い（MCP標準） |
@@ -489,29 +489,82 @@ docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し 
 
 ## ログ出力の違い
 
-### script/query（ログなし）
+### script/query（enhanced版）
 ```
-# 標準出力のみ、構造化ログなし
+🗓️  macOS Calendar クエリを実行中...
+📋 実行方法: script/query (直接呼び出し) - docs/05-call-methods-comparison.md#1
+📅 クエリ: 今日のイベント
+📍 期間: 2024-09-22 から 2024-09-29
+
+🔧 CLIENT SIDE: 直接内部メソッド呼び出し (MCPプロトコル層バイパス)
+📞 CLIENT SIDE: CalendarMCPServer()._get_events() を直接実行中...
+⚙️  SERVER SIDE: CalendarMCPServer 初期化中...
+🔍 SERVER SIDE: EventKit フレームワークからイベントデータ取得中...
+✅ SERVER SIDE: 3 個のイベントを取得完了
+
+📊 CLIENT SIDE: 受信データをユーザー向けフォーマットに変換中...
+📋 3件のイベントが見つかりました:
+
+1. チームミーティング
+   📅 開始: 2024-09-22 09:00:00
+   🏁 終了: 2024-09-22 10:00:00
+   📋 カレンダー: 仕事
 ```
 
-### MCPクライアント（構造化ログ）
+### MCPクライアント（enhanced版）
 ```
-2024-09-18 10:30:15,123 - calendar_mcp.server.json_data - [INCOMING] TOOL REQUEST:
+🚀 MCP クライアント テストスクリプトを開始
+📋 実行方法: script/mcp_client_test (MCPクライアント経由) - docs/05-call-methods-comparison.md#2
+🔧 CLIENT SIDE: 標準MCPプロトコル (JSON-RPC) による通信
+
+🎯 MCPクライアント経由の呼び出しシナリオを開始
+🔗 プロトコル層: JSON-RPC 2.0 over stdio transport
+============================================================
+
+📋 Step 2: MCPサーバーを起動
+🔧 CLIENT SIDE: MCPサーバープロセス起動準備...
+🚀 MCPサーバーを起動中... (transport: stdio)
+✅ MCPサーバーが起動しました
+
+📋 Step 4: MCPプロトコルを初期化
+🔧 CLIENT SIDE: MCP handshake 実行中...
+📤 [OUTGOING] MCP REQUEST: {"jsonrpc": "2.0", "method": "initialize", "id": 1, ...}
+📥 [INCOMING] MCP RESPONSE: {"jsonrpc": "2.0", "id": 1, "result": {...}}
+✅ MCPサーバーの初期化が完了しました
+
+📋 Step 7: イベント一覧を取得（今日から1週間）
+🔧 CLIENT SIDE: get_macos_calendar_events ツール呼び出し中...
+📤 [OUTGOING] MCP REQUEST: {"jsonrpc": "2.0", "method": "tools/call", ...}
+📥 [INCOMING] MCP RESPONSE: {"jsonrpc": "2.0", "id": 3, "result": {...}}
+⚙️  SERVER SIDE: EventKit からイベントデータ処理完了
+✅ イベント取得成功
+🔧 CLIENT SIDE: JSON-RPC レスポンス解析中...
+📅 2 件のイベントが見つかりました
+   1. Sample Meeting
+      📅 2024-09-22 09:00:00 - 2024-09-22 10:00:00
+
+📊 CLIENT SIDE: 全てのプロトコル通信が正常に完了
+🎉 MCPクライアント経由の呼び出しシナリオが完了しました
+```
+
+**サーバーサイドの詳細ログ（calendar_mcp/server.py 内）:**
+```
+2024-09-22 10:30:15,123 - calendar_mcp.server.json_data - [INCOMING] TOOL REQUEST:
 {
   "name": "get_macos_calendar_events",
   "arguments": {
-    "start_date": "2024-09-18",
-    "end_date": "2024-09-25",
+    "start_date": "2024-09-22",
+    "end_date": "2024-09-29",
     "calendar_name": null
   }
 }
 
-2024-09-18 10:30:15,456 - calendar_mcp.server.json_data - [OUTGOING] TOOL RESPONSE:
+2024-09-22 10:30:15,456 - calendar_mcp.server.json_data - [OUTGOING] TOOL RESPONSE:
 [
   {
     "title": "チームミーティング",
-    "start_date": "2024-09-18 09:00:00",
-    "end_date": "2024-09-18 10:00:00",
+    "start_date": "2024-09-22 09:00:00",
+    "end_date": "2024-09-22 10:00:00",
     "calendar": "仕事",
     "notes": "週次定例会議",
     "allDay": false

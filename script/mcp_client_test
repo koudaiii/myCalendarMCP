@@ -252,6 +252,7 @@ async def run_mcp_client_scenario():
     """MCPクライアント経由の呼び出しシナリオを実行"""
 
     logger.info("🎯 MCPクライアント経由の呼び出しシナリオを開始")
+    logger.info("🔗 プロトコル層: JSON-RPC 2.0 over stdio transport")
     logger.info("=" * 60)
 
     # 1. カレンダー許可確認
@@ -262,6 +263,7 @@ async def run_mcp_client_scenario():
 
     # 2. MCPサーバー起動
     logger.info("📋 Step 2: MCPサーバーを起動")
+    logger.info("🔧 CLIENT SIDE: MCPサーバープロセス起動準備...")
     server_manager = MCPServerManager()
 
     try:
@@ -271,33 +273,70 @@ async def run_mcp_client_scenario():
 
         # 3. MCPクライアント作成
         logger.info("📋 Step 3: MCPクライアントを初期化")
+        logger.info("🔧 CLIENT SIDE: JSON-RPC クライアント設定中...")
         client = MCPClient(server_manager.process)
 
         # 4. MCPプロトコル初期化
         logger.info("📋 Step 4: MCPプロトコルを初期化")
+        logger.info("🔧 CLIENT SIDE: MCP handshake 実行中...")
         if not client.initialize():
             logger.error("❌ MCPプロトコルの初期化に失敗しました")
             return False
 
         # 5. ツール一覧取得
         logger.info("📋 Step 5: 利用可能なツール一覧を取得")
+        logger.info("🔧 CLIENT SIDE: tools/list リクエスト送信中...")
         tools_response = client.list_tools()
         if tools_response and "result" in tools_response:
             tools = tools_response["result"].get("tools", [])
+            logger.info(f"⚙️  SERVER SIDE: MCPサーバーから {len(tools)} 個のツール定義を受信")
             logger.info(f"✅ {len(tools)} 個のツールが利用可能です:")
             for tool in tools:
                 logger.info(f"   - {tool.get('name', 'N/A')}: {tool.get('description', 'N/A')}")
 
         # 6. カレンダー一覧取得
         logger.info("📋 Step 6: カレンダー一覧を取得")
+        logger.info("🔧 CLIENT SIDE: list_macos_calendars ツール呼び出し中...")
         calendars_response = client.call_tool("list_macos_calendars", {})
         if calendars_response and "result" in calendars_response:
+            logger.info("⚙️  SERVER SIDE: EventKit からカレンダーデータ処理完了")
+
+            # SERVER SIDE: Raw Response Structure
+            logger.info("🔍 SERVER SIDE: Raw Response Structure:")
+            logger.info(json.dumps(calendars_response["result"], indent=2, ensure_ascii=False))
+
+            # CLIENT SIDE: Parse and format the response
+            logger.info("📊 CLIENT SIDE: レスポンス解析・構造化中...")
+            content = calendars_response["result"].get("content", [])
+            if content and len(content) > 0:
+                calendars_text = content[0].get("text", "")
+                try:
+                    calendars = json.loads(calendars_text)
+
+                    # CLIENT SIDE: Formatted Response Structure
+                    client_response = []
+                    for calendar in calendars:
+                        client_response.append({
+                            'title': calendar.get('title', 'N/A'),
+                            'type': calendar.get('type', 'N/A'),
+                            'identifier': calendar.get('identifier', 'N/A'),
+                            'allowsContentModifications': calendar.get('allowsContentModifications', False)
+                        })
+
+                    logger.info("🔍 CLIENT SIDE: Formatted Response Structure:")
+                    logger.info(json.dumps(client_response, indent=2, ensure_ascii=False))
+                    logger.info(f"📋 {len(calendars)} 個のカレンダーが見つかりました")
+
+                except json.JSONDecodeError:
+                    logger.warning("⚠️ カレンダーデータの解析に失敗しました")
+
             logger.info("✅ カレンダー一覧取得成功")
 
         # 7. イベント取得（今日から1週間）
         logger.info("📋 Step 7: イベント一覧を取得（今日から1週間）")
         start_date = datetime.now().strftime("%Y-%m-%d")
         end_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+        logger.info("🔧 CLIENT SIDE: get_macos_calendar_events ツール呼び出し中...")
 
         events_response = client.call_tool("get_macos_calendar_events", {
             "start_date": start_date,
@@ -305,20 +344,40 @@ async def run_mcp_client_scenario():
         })
 
         if events_response and "result" in events_response:
-            logger.info("✅ イベント取得成功")
+            logger.info("⚙️  SERVER SIDE: EventKit からイベントデータ処理完了")
 
-            # レスポンスからイベントデータを解析
+            # SERVER SIDE: Raw Response Structure
+            logger.info("🔍 SERVER SIDE: Raw Response Structure:")
+            logger.info(json.dumps(events_response["result"], indent=2, ensure_ascii=False))
+
+            # CLIENT SIDE: Parse and format the response
+            logger.info("📊 CLIENT SIDE: JSON-RPC レスポンス解析・構造化中...")
             content = events_response["result"].get("content", [])
             if content and len(content) > 0:
                 events_text = content[0].get("text", "")
                 try:
                     events = json.loads(events_text)
+
+                    # CLIENT SIDE: Formatted Response Structure
+                    client_response = []
+                    for event in events:
+                        client_response.append({
+                            'title': event.get('title', 'N/A'),
+                            'start_date': event.get('start_date', event.get('start', 'N/A')),
+                            'end_date': event.get('end_date', event.get('end', 'N/A')),
+                            'calendar': event.get('calendar', 'N/A'),
+                            'notes': event.get('notes', ''),
+                            'allDay': event.get('allDay', False)
+                        })
+
+                    logger.info("🔍 CLIENT SIDE: Formatted Response Structure:")
+                    logger.info(json.dumps(client_response, indent=2, ensure_ascii=False))
                     logger.info(f"📅 {len(events)} 件のイベントが見つかりました")
 
                     # イベントを表示
                     for i, event in enumerate(events, 1):
                         logger.info(f"   {i}. {event.get('title', 'N/A')}")
-                        logger.info(f"      📅 {event.get('start_date', 'N/A')} - {event.get('end_date', 'N/A')}")
+                        logger.info(f"      📅 {event.get('start_date', event.get('start', 'N/A'))} - {event.get('end_date', event.get('end', 'N/A'))}")
                         logger.info(f"      📋 カレンダー: {event.get('calendar', 'N/A')}")
                         if event.get('notes'):
                             logger.info(f"      📝 メモ: {event.get('notes')}")
@@ -327,23 +386,53 @@ async def run_mcp_client_scenario():
                 except json.JSONDecodeError:
                     logger.warning("⚠️ イベントデータの解析に失敗しました")
 
+            logger.info("✅ イベント取得成功")
+
         # 8. リソース一覧取得
         logger.info("📋 Step 8: 利用可能なリソース一覧を取得")
+        logger.info("🔧 CLIENT SIDE: resources/list リクエスト送信中...")
         resources_response = client.list_resources()
         if resources_response and "result" in resources_response:
             resources = resources_response["result"].get("resources", [])
+            logger.info(f"⚙️  SERVER SIDE: MCPサーバーから {len(resources)} 個のリソース定義を受信")
             logger.info(f"✅ {len(resources)} 個のリソースが利用可能です:")
             for resource in resources:
                 logger.info(f"   - {resource.get('uri', 'N/A')}: {resource.get('name', 'N/A')}")
 
         # 9. リソース読み取り（calendar://events）
         logger.info("📋 Step 9: calendar://events リソースを読み取り")
+        logger.info("🔧 CLIENT SIDE: resources/read リクエスト送信中...")
         events_resource = client.read_resource("calendar://events")
         if events_resource and "result" in events_resource:
+            logger.info("⚙️  SERVER SIDE: EventKit からリソースデータ処理完了")
+
+            # SERVER SIDE: Raw Response Structure
+            logger.info("🔍 SERVER SIDE: Raw Response Structure:")
+            logger.info(json.dumps(events_resource["result"], indent=2, ensure_ascii=False))
+
+            # CLIENT SIDE: Parse and format the response
+            logger.info("📊 CLIENT SIDE: リソースデータ解析・構造化中...")
+            contents = events_resource["result"].get("contents", [])
+            if contents:
+                for content in contents:
+                    if content.get("type") == "text":
+                        resource_text = content.get("text", "")
+                        try:
+                            resource_data = json.loads(resource_text)
+
+                            # CLIENT SIDE: Formatted Response Structure
+                            logger.info("🔍 CLIENT SIDE: Formatted Resource Structure:")
+                            logger.info(json.dumps(resource_data, indent=2, ensure_ascii=False))
+
+                        except json.JSONDecodeError:
+                            logger.warning("⚠️ リソースデータの解析に失敗しました")
+                            logger.info(f"生データ: {resource_text[:200]}...")
+
             logger.info("✅ calendar://events リソース読み取り成功")
 
         logger.info("=" * 60)
         logger.info("🎉 MCPクライアント経由の呼び出しシナリオが完了しました")
+        logger.info("📊 CLIENT SIDE: 全てのプロトコル通信が正常に完了")
         return True
 
     except Exception as e:
@@ -358,7 +447,8 @@ async def run_mcp_client_scenario():
 def main():
     """メイン実行関数"""
     logger.info("🚀 MCP クライアント テストスクリプトを開始")
-    logger.info("docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し のシナリオ")
+    logger.info("📋 実行方法: script/mcp_client_test (MCPクライアント経由) - docs/05-call-methods-comparison.md#2")
+    logger.info("🔧 CLIENT SIDE: 標準MCPプロトコル (JSON-RPC) による通信")
     logger.info("")
 
     # シグナルハンドラー設定
