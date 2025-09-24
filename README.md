@@ -45,13 +45,14 @@ To access the calendar, you need to grant permission in macOS privacy settings:
 ## Starting MCP Server
 
 ```bash
-# Start MCP server (SSE transport - HTTP mode)
+# Start MCP server (Streamable HTTP transport - recommended)
 ./script/server
 
 # Customize transport method
-./script/server --transport sse        # SSE (HTTP) - default
-./script/server --transport stdio      # Standard input/output
-./script/server --transport streamable-http  # Streamable HTTP
+# Based on MCP 2025-03-26 specification: https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
+./script/server --transport streamable-http  # Streamable HTTP (recommended for remote servers)
+./script/server --transport stdio      # Standard input/output (recommended for local processes)
+./script/server --transport sse        # Legacy SSE (deprecated, compatibility only)
 
 # Run tests
 ./script/test
@@ -76,7 +77,8 @@ To access the calendar, you need to grant permission in macOS privacy settings:
 
 ### VS Code (Claude Code) Configuration
 
-- `$ script/server --transport sse`
+- `$ script/server --transport streamable-http` (recommended)
+- `$ script/server --transport sse` (legacy compatibility)
 
 **SSE Transport Configuration (settings.json or .vscode/settings.json):**
 ```json
@@ -91,7 +93,7 @@ To access the calendar, you need to grant permission in macOS privacy settings:
 
 **Streamable HTTP Transport Configuration (settings.json or .vscode/settings.json):**
 
-- `$ script/server --transport streamable-http`
+- `$ script/server --transport streamable-http` (recommended per MCP 2025-03-26 specification)
 
 ```json
 {

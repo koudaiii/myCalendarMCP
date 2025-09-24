@@ -52,13 +52,14 @@ macOS の Calendar アプリ（EventKit）にアクセスするための MCP（M
 ## MCPサーバー起動
 
 ```bash
-# MCPサーバーを起動（SSEトランスポート - HTTPモード）
+# MCPサーバーを起動（Streamable HTTPトランスポート - 推奨）
 ./script/server
 
 # トランスポート方式をカスタマイズ
-./script/server --transport sse        # SSE (HTTP) - デフォルト
-./script/server --transport stdio      # 標準入出力
-./script/server --transport streamable-http  # Streamable HTTP
+# MCP 2025-03-26仕様に基づく推奨順位: https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
+./script/server --transport streamable-http  # Streamable HTTP (リモートサーバー推奨)
+./script/server --transport stdio      # 標準入出力 (ローカルプロセス推奨)
+./script/server --transport sse        # レガシーSSE (非推奨、互換性のみ)
 
 # テストを実行
 ./script/test
@@ -83,7 +84,8 @@ macOS の Calendar アプリ（EventKit）にアクセスするための MCP（M
 
 ### VS Code (Claude Code) での設定
 
-- `$ script/server --transport sse`
+- `$ script/server --transport streamable-http` (推奨)
+- `$ script/server --transport sse` (レガシー互換性)
 
 **SSEトランスポート用設定 (settings.json または .vscode/settings.json):**
 ```json
@@ -98,7 +100,7 @@ macOS の Calendar アプリ（EventKit）にアクセスするための MCP（M
 
 **Streamable HTTPトランスポート用設定 (settings.json または .vscode/settings.json):**
 
-- `$ script/server --transport streamable-http`
+- `$ script/server --transport streamable-http` (MCP 2025-03-26仕様推奨)
 
 ```json
 {

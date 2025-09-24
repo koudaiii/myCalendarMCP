@@ -59,13 +59,14 @@ else:
 ### 3. 動作確認コマンド
 
 ```bash
-# デフォルト (SSE)
+# デフォルト (streamable-http: MCP 2025-03-26仕様推奨)
 script/server
 
-# 特定のトランスポート指定
-script/server --transport sse
-script/server --transport stdio
-script/server --transport streamable-http
+# 特定のトランスポート指定（MCP 2025-03-26仕様準拠）
+# 参考: https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
+script/server --transport streamable-http  # 推奨: リモートサーバー
+script/server --transport stdio            # 推奨: ローカルプロセス
+script/server --transport sse              # 非推奨: レガシー互換性のみ
 
 # MCPクライアント経由のテスト
 script/mcp_client_test

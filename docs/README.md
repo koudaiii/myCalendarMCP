@@ -88,6 +88,17 @@ MCPアーキテクチャを語る際によく生じる誤解を解消し、LLM�
 - 開発者向けの実装ガイダンスとエラーハンドリング
 - 誤解の訂正と正しいアーキテクチャ理解
 
+### [11. MCPライブラリリファレンス](./11-mcp-libraries-reference.md)
+
+myCalendarMCPプロジェクトで使用している主要ライブラリの包括的なリファレンスガイドです。FastMCPフレームワークの詳細解説、EventKitライブラリの実装パターン、その他の依存関係について技術的詳細を提供します。FastMCPクラスの全メソッド・プロパティ、Contextオブジェクトの活用方法、Settingsクラスの設定項目、StreamableHTTPASGIAppの使用方法を詳しく解説します。また、MCPプロトコルの動作を理解しやすくする7つのシーケンス図により、サーバー初期化からエラーハンドリングまでの全フローを可視化しています。包括的な内容：
+
+- FastMCPクラス詳細解説（コンストラクタ、主要メソッド、使用パターン）
+- Contextオブジェクト活用方法（ログ出力、プログレス報告、リソースアクセス）
+- EventKit実装パターン（カレンダーアクセス、イベント操作、エラーハンドリング）
+- 7つのMCPプロトコル動作シーケンス図
+- 内部依存関係とトラブルシューティング
+- テスト用MCPクライアント実装例
+
 ## クイックスタート
 
 ### 1. ドキュメントの読み方
@@ -97,15 +108,17 @@ MCPアーキテクチャを語る際によく生じる誤解を解消し、LLM�
 2. [05-call-methods-comparison.md](./05-call-methods-comparison.md) - 使用方法の選択指針と実用パターン
 3. [07-llm-mcp-relationship.md](./07-llm-mcp-relationship.md) - LLMとMCPの正確な関係と実装実証
 4. [06-mcp-client-significance.md](./06-mcp-client-significance.md) - MCPクライアントの価値と技術的優位性
-5. [02-architecture.md](./02-architecture.md) - 実装アーキテクチャとテスト設計
-6. [03-best-practices.md](./03-best-practices.md) - 開発のコツと品質管理
+5. [11-mcp-libraries-reference.md](./11-mcp-libraries-reference.md) - ライブラリ詳細とシーケンス図
+6. [02-architecture.md](./02-architecture.md) - 実装アーキテクチャとテスト設計
+7. [03-best-practices.md](./03-best-practices.md) - 開発のコツと品質管理
 
 **既存の開発者:**
-1. [02-architecture.md](./02-architecture.md) - 技術的詳細を確認
-2. [05-call-methods-comparison.md](./05-call-methods-comparison.md) - 実装手法の比較検討
-3. [06-mcp-client-significance.md](./06-mcp-client-significance.md) - アーキテクチャ設計の深い理解
-4. [03-best-practices.md](./03-best-practices.md) - 改善点を把握
-5. [04-troubleshooting.md](./04-troubleshooting.md) - 問題解決方法を習得
+1. [11-mcp-libraries-reference.md](./11-mcp-libraries-reference.md) - ライブラリAPI詳細とシーケンス図
+2. [02-architecture.md](./02-architecture.md) - 技術的詳細を確認
+3. [05-call-methods-comparison.md](./05-call-methods-comparison.md) - 実装手法の比較検討
+4. [06-mcp-client-significance.md](./06-mcp-client-significance.md) - アーキテクチャ設計の深い理解
+5. [03-best-practices.md](./03-best-practices.md) - 改善点を把握
+6. [04-troubleshooting.md](./04-troubleshooting.md) - 問題解決方法を習得
 
 **AIエージェント開発者:**
 1. [07-llm-mcp-relationship.md](./07-llm-mcp-relationship.md) - **必読**: LLMとMCPの正確な関係

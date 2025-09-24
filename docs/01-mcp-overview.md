@@ -22,9 +22,11 @@
 
 Anthropicから発表された Model Context Protocol (MCP) は、AIエージェントが外部のツールやデータソースと安全かつ標準化された方法で連携するためのプロトコルです。これまでAIエージェントは専用ツールとセットで開発されてきましたが、MCPにより異なる開発元のエージェントとツールが協力し合う新しい時代を迎えています。
 
+![What is the Model Context Protocol (MCP)?](image.png)
+
 **公式リソース:**
-- [Model Context Protocol 公式サイト](https://modelcontextprotocol.io/)
-- [MCP 仕様書](https://spec.modelcontextprotocol.io/)
+- [Model Context Protocol 公式サイト](https://modelcontextprotocol.io/docs/getting-started/intro)
+- [MCP 仕様書](https://modelcontextprotocol.io/specification/2025-06-18)
 - [GitHub - MCP](https://github.com/modelcontextprotocol)
 
 ### MCPの革新性
@@ -58,29 +60,34 @@ MCPは複数の通信方式をサポート:
 
 #### stdio（標準入出力）
 ```bash
-# コマンドライン実行
+# ローカルプロセス推奨トランスポート
 script/server --transport stdio
 ```
-- シンプルな実装
-- デバッグが容易
-- ローカル環境での開発に適している
+- **ローカル用推奨**: "Clients SHOULD support stdio whenever possible"
+- サブプロセス間通信（STDIN/STDOUT）
+- シンプルな実装・デバッグが容易
+- MCPクライアントテストで使用
 
 #### SSE（Server-Sent Events）
 ```bash
-# デフォルトのトランスポート
+# レガシートランスポート（互換性サポートのみ）
 script/server --transport sse
 ```
-- Webベースの通信
-- リアルタイム通信が可能
+- **注意**: MCP 2024-11-05仕様での旧実装
+- **現在は非推奨**: 互換性のためのみサポート
+- 参考: [MCP 2025-03-26仕様](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports)
 - ブラウザベースのクライアントに適している
 
 #### Streamable HTTP
 ```bash
-# HTTP ストリーミング
+# 推奨トランスポート（MCP 2025-03-26仕様）
 script/server --transport streamable-http
 ```
-- HTTP/2ベースの効率的な通信
-- 大量データの転送に適している
+- **最推奨**: リモートサーバー・クラウドインフラ対応
+- 単一HTTP接続での双方向通信
+- チャンク転送エンコーディング対応
+- サーバーレス環境（AWS Lambda等）での効率的な動作
+- スケーラブルなアーキテクチャ
 
 ## MCPの核となる概念
 
