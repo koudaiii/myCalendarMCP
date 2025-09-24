@@ -11,6 +11,7 @@
   - [8. パフォーマンス設計指針とEventKit技術仕様](#8-パフォーマンス設計指針とeventkit技術仕様)
   - [9. FastMCPツールの適切な定義とベストプラクティス](#9-fastmcpツールの適切な定義とベストプラクティス)
   - [10. MCPクライアントテストスクリプト（script/mcp_client_test）](#10-mcpクライアントテストスクリプトscriptmcp_client_test)
+  - [11. MCPライブラリとパッケージ依存関係の詳細解説](#11-mcpライブラリとパッケージ依存関係の詳細解説)
 
 ## 問題と解決策の記録
 
@@ -544,3 +545,104 @@ docs/05-call-methods-comparison.md#2-MCPクライアント経由の呼び出し 
 - MCPサーバー変更後の動作確認
 - 新しいMCPクライアント実装時の参考実装
 - トラブルシューティング時の通信ログ確認
+
+### 11. MCPライブラリとパッケージ依存関係の詳細解説
+
+**目的:**
+- MCPプロトコル実装で使用している全ライブラリの網羅的解説
+- バージョン管理とアップデート方針の明確化
+- トラブルシューティングと開発効率向上のための技術リファレンス
+
+**詳細ドキュメント:**
+- `docs/11-mcp-libraries-reference.md`: 包括的なライブラリリファレンス
+
+**主要パッケージ構成（pyproject.toml）:**
+```toml
+dependencies = [
+    "mcp",                           # v1.14.0 - MCP コアライブラリ
+    "pyobjc-framework-EventKit",     # v11.1   - macOS EventKit バインディング
+    "pyobjc-framework-Cocoa",        # v11.1   - macOS Cocoa バインディング
+    "python-dateutil",               # v2.9.0  - 日付時刻処理拡張
+]
+```
+
+**FastMCP核心実装パターン:**
+```python
+from mcp.server import FastMCP
+from mcp.types import ToolAnnotations
+
+# FastMCPインスタンス作成（プロジェクト固有名称）
+server = FastMCP("calendar-mcp")
+
+# ツール定義テンプレート（ベストプラクティス適用）
+@server.tool(
+    name="操作対象_動作_具体名",  # 例: get_macos_calendar_events
+    description="詳細な説明\\n\\nParameters:\\n- param: type説明",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,      # データ取得系: True, 変更系: False
+        idempotentHint=True,    # 冪等性がある: True, ない: False
+        destructiveHint=False   # 変更系でのみ: True
+    ),
+)
+async def tool_function(param: str) -> str:
+    # 実装
+```
+
+**EventKit基本操作パターン:**
+```python
+# EventKitアクセス確立
+if EVENTKIT_AVAILABLE:
+    event_store = EventKit.EKEventStore.alloc().init()
+
+    # 権限確認必須処理
+    status = event_store.authorizationStatusForEntityType_(
+        EventKit.EKEntityTypeEvent
+    )
+    access_granted = (status == EventKit.EKAuthorizationStatusAuthorized)
+```
+
+**依存関係検証とアップデート手順:**
+```bash
+# 現在の依存関係ツリー確認
+uv tree
+
+# 特定パッケージ詳細確認
+uv show mcp pyobjc-framework-eventkit
+
+# 依存関係更新（慎重に実行）
+uv lock --upgrade-package mcp
+uv sync
+
+# 更新後の動作確認フロー
+script/test && script/mcp_client_test
+```
+
+**内部依存関係の重要コンポーネント:**
+- `anyio v4.10.0`: 非同期I/O（FastMCP基盤）
+- `pydantic v2.11.9`: データバリデーション（MCPプロトコル）
+- `starlette v0.48.0`: ASGI Web フレームワーク（HTTP トランスポート）
+- `pyobjc-core v11.1`: Objective-C ブリッジ基盤（EventKit基盤）
+
+**パッケージ固有のトラブルシューティング:**
+
+**EventKit関連:**
+- macOSバージョンとpyobjc-framework-eventkitの互換性確認必須
+- カレンダーアクセス許可はシステム設定で手動確認要
+- `EKAuthorizationStatusNotDetermined`時は権限リクエストが必要
+
+**MCP関連:**
+- トランスポート別のasync処理パターンの違いに注意
+- JSON-RPCプロトコルバージョン `2024-11-05` 準拠必須
+- FastMCPは内部でanyio.run()使用のため既存asyncio loop内では衝突
+
+**パフォーマンスチューニング指針:**
+- EventStore インスタンス再利用でinitializationコスト削減
+- 大量イベント取得時のメモリ使用量監視（NSDate オブジェクトリーク防止）
+- MCPレスポンスサイズ制御（AIモデルのコンテキストウィンドウ制限考慮）
+
+**バージョンアップ時の検証項目:**
+1. `uv tree` でバージョン確認
+2. `script/test` でユニットテスト全通過
+3. `script/mcp_client_test` でMCPプロトコル動作確認
+4. 各トランスポート（stdio, sse, streamable-http）での動作確認
+5. EventKit権限状態での正常動作確認
