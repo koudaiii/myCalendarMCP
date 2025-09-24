@@ -1341,3 +1341,6 @@ uv run pytest tests/ -v -s --tb=long --log-cli-level=DEBUG
 4. **pyobjc**: Objective-C ブリッジによるmacOS API アクセス
 
 各ライブラリの適切な使用により、堅牢で拡張性のあるMCPサーバーを実現しています。
+
+Prev: [07 LLMとMCPクライアントの正確な関係](./07-llm-mcp-relationship.md)
+[README](./README.md)
